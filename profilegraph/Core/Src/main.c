@@ -49,6 +49,10 @@ SPI_HandleTypeDef hspi1;
 ADXL_InitTypeDef ADXL;
 adxlStatus adxlSts;
 int16_t accelData[3];
+float accelData_g[3];
+static float xOut_g;
+static float yOut_g;
+static float zOut_g;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -97,11 +101,17 @@ int main(void)
   MX_I2C1_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
+  ADXL.SPIMode = SPIMODE_4WIRE;
+  ADXL.Rate = BWRATE_800;
+  ADXL.Range = RANGE_2G;
+  ADXL.Resolution = RESOLUTION_FULL;
+
   if (ADXL_Init(&ADXL)!= ADXL_OK){
 	  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
 	  Error_Handler();
   }
 
+  ADXL_Measure(ON);
 
   /* USER CODE END 2 */
 
@@ -110,10 +120,14 @@ int main(void)
   while (1)
   {
 //	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-	  //ADXL_getAccel(accelData, OUTPUT_SIGNED);
+//	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	  ADXL_getAccel(accelData, OUTPUT_SIGNED);
+
+	  xOut_g = accelData[0]/255.0*9.8;
+	  yOut_g = accelData[1]/255.0*9.8;
+	  zOut_g = accelData[2]/255.0*9.8;
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	  HAL_Delay(200);
+	  HAL_Delay(50);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
