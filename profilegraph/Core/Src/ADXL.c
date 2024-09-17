@@ -27,6 +27,7 @@
 
 
 #include "ADXL.h"
+#include "stm32f7xx_hal.h"
 
 
 	float GAINX = 0.0f;
