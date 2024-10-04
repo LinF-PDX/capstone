@@ -34,34 +34,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := accelerometer
+BUILD_ARTIFACT_NAME := profileograph
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-accelerometer.elf \
+profileograph.elf \
 
 MAP_FILES += \
-accelerometer.map \
+profileograph.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-accelerometer.list \
+profileograph.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: accelerometer.elf secondary-outputs
+main-build: profileograph.elf secondary-outputs
 
 # Tool invocations
-accelerometer.elf accelerometer.map: $(OBJS) $(USER_OBJS) /Users/linfu/school/capstone/profilegraph/STM32F767ZITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "accelerometer.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"/Users/linfu/school/capstone/profilegraph/STM32F767ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="accelerometer.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+profileograph.elf profileograph.map: $(OBJS) $(USER_OBJS) C:\school\capstone\control\profilegraph\STM32F767ZITX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "profileograph.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m7 -T"C:\school\capstone\control\profilegraph\STM32F767ZITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="profileograph.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -70,14 +70,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-accelerometer.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "accelerometer.list"
+profileograph.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "profileograph.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) accelerometer.elf accelerometer.list accelerometer.map default.size.stdout
+	-$(RM) default.size.stdout profileograph.elf profileograph.list profileograph.map
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)
