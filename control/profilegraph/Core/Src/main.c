@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "ADXL.h"
+#include "lsm6dso_reg.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -61,6 +62,7 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 /* USER CODE BEGIN PFP */
+void lsm6dso_read_data_polling(void);
 
 /* USER CODE END PFP */
 
@@ -101,6 +103,10 @@ int main(void)
   MX_I2C1_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
+
+
+  lsm6dso_read_data_polling();
+
   ADXL.SPIMode = SPIMODE_4WIRE;
   ADXL.Rate = BWRATE_800;
   ADXL.Range = RANGE_2G;

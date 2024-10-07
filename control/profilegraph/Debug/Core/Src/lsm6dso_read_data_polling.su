@@ -1,0 +1,6 @@
+../Core/Src/lsm6dso_read_data_polling.c:134:6:lsm6dso_read_data_polling	32	static
+../Core/Src/lsm6dso_read_data_polling.c:240:16:platform_write	24	static
+../Core/Src/lsm6dso_read_data_polling.c:267:16:platform_read	24	static
+../Core/Src/lsm6dso_read_data_polling.c:292:13:tx_com	16	static
+../Core/Src/lsm6dso_read_data_polling.c:309:13:platform_delay	16	static
+../Core/Src/lsm6dso_read_data_polling.c:321:13:platform_init	4	static
