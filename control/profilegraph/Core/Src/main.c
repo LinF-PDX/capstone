@@ -54,6 +54,7 @@ float accelData_g[3];
 static float xOut_g;
 static float yOut_g;
 static float zOut_g;
+uint8_t dirction = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -126,7 +127,23 @@ int main(void)
   {
 //	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 //	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-	  htim2.Instance->CCR1 = 50;
+
+	  //180 deg -> CCR = 125, 0 deg -> CCR = 25
+	  if (dirction == 0){
+		  for (int i = 25; i < 125; i++){
+			  htim2.Instance->CCR1 = i;
+			  HAL_Delay(5);
+		  }
+		  dirction = 1;
+	  } else {
+		  for (int i = 125; i > 25; i--){
+			  htim2.Instance->CCR1 = i;
+			  HAL_Delay(5);
+		  }
+		  dirction = 0;
+	  }
+
+
 
 	  ADXL_getAccel(accelData, OUTPUT_SIGNED);
 
@@ -134,7 +151,7 @@ int main(void)
 	  yOut_g = accelData[1]/255.0*9.8;
 	  zOut_g = accelData[2]/255.0*9.8;
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	  HAL_Delay(200);
+	  HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
