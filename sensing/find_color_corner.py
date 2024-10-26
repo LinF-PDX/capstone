@@ -2,11 +2,12 @@
 
 import cv2
 
-video_path = 'D:/capstone/capstone/sensing/test_video/test.mp4'
-cap = cv2.VideoCapture(video_path)
+#video_path = 'D:/capstone/capstone/sensing/test_video/test.mp4'
+cap = cv2.VideoCapture(0)
+cap.set(3, 1080)
+cap.set(4, 720)
 ret, img = cap.read()
 cap.release()
-
 new_width = int(img.shape[1] * 0.5)
 new_height = int(img.shape[0] * 0.5)
 
@@ -30,7 +31,7 @@ def find_corner(event, x, y, flags, param):
 
 if __name__ == '__main__':
     cv2.namedWindow("img")
-    cv2.setMouseCallback("img", find_color)
+    cv2.setMouseCallback("img", find_corner)
     while True:
         cv2.imshow('img', img)
         if cv2.waitKey() == ord('q'):

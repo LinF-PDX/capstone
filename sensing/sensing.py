@@ -1,14 +1,29 @@
+
 import os
 import cv2
 import numpy as np
 import subprocess
 
+def timer(func):
+    def func_wrapper(*args, **kwargs):
+        from time import time
+        time_start = time()
+        result = func(*args, **kwargs)
+        time_end = time()
+        time_spend = time_end - time_start
+        print('%s cost time: %.3f s' % (func.__name__, time_spend))
+        return result
+    return func_wrapper
+
+
 class Sensing():
-    def __init__(self):
+    def __init__(self,actual_x=20,laser_color="red",gpu=0):
         self.cap = cv2.VideoCapture(0) #select camera
-        self.actual_x = 20 #length of target board from left to right
+        self.actual_x = actual_x #length of target board from left to right
         self.on = 0 #Switch
-        self.laser_color = "red" #Color of Laser
+        self.laser_color = laser_color #Color of Laser
+        self.resolution = [1080,720]
+        self.gpu = gpu
     def find_cross(self,image): #Find the center cross coordinate
         #image processing to find the cross line clearly
         gray_cross = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -65,7 +80,7 @@ class Sensing():
             return cross[0][0]
     
     def pt(self,image): #perspective transformation
-        roi = np.array([[736,0],[232,0],[185,538],[801,539]]) 
+        roi = np.array([[351,1],[85,1],[53,296],[391,296]]) 
         #      b,a,d,c
         #      a------b
         #      |      |
@@ -149,8 +164,8 @@ class Sensing():
         #image processing to find the laser dot clearly
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         if self.laser_color == "red":
-            lower_color = np.array([170, 50, 210])
-            upper_color = np.array([180, 70, 255])
+            lower_color = np.array([160, 20, 200])
+            upper_color = np.array([180, 120, 255])
         elif self.laser_color == "green":
             lower_color = np.array([35, 100, 100])
             upper_color = np.array([85, 255, 255])
@@ -192,6 +207,7 @@ class Sensing():
                     break
         return target_x
     
+    @timer
     def off_dis(self,img): #calculate the distance between laser dot and center cross
         img, board_x=self.pt(img)
         target_x = self.find_circle(img)
@@ -227,16 +243,16 @@ class Sensing():
         self.cal.release()
         cv2.destroyAllWindows()
         
-    def test(self,video_path):
-        
-        cap = cv2.VideoCapture(video_path)
-
-        if not cap.isOpened():
+    def test(self):
+        #cap = cv2.VideoCapture(0)
+        self.cap.set(3, self.resolution[0])
+        self.cap.set(4, self.resolution[1])
+        if not self.cap.isOpened():
             print("Error: Could not open video file.")
             exit()
         
-        while cap.isOpened():
-            ret, frame = cap.read()
+        while self.cap.isOpened():
+            ret, frame = self.cap.read()
         
             if not ret:
                 break
@@ -255,7 +271,7 @@ class Sensing():
             if cv2.waitKey(25) & 0xFF == ord('q'):
                 break
 
-        cap.release()
+        self.cap.release()
         cv2.destroyAllWindows()
     def communication(self,value):
         #Create Communication Protocol with STM32
@@ -263,4 +279,5 @@ class Sensing():
 
 if __name__ == "__main__":
     dis = Sensing()
-    dis.test("D:/capstone/capstone/sensing/test_video/test.mp4")
+    #dis.test("D:/capstone/capstone/sensing/test_video/test.mp4")
+    dis.test()
