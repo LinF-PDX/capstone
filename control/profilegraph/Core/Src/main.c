@@ -40,6 +40,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 CAN_HandleTypeDef hcan1;
 
 SPI_HandleTypeDef hspi1;
@@ -55,6 +57,7 @@ static float xOut_g;
 static float yOut_g;
 static float zOut_g;
 uint8_t dirction = 0;
+uint8_t knobRotation_P = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -63,13 +66,22 @@ static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_CAN1_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+float Knob_Rotation_Percent(void) {
+	uint16_t ADC_VAL;
 
+	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, 10);
+	ADC_VAL = HAL_ADC_GetValue(&hadc1);
+	HAL_ADC_Stop(&hadc1);
+	return (float)ADC_VAL/4095; //returns ADC percentage ranges from 0-1
+}
 /* USER CODE END 0 */
 
 /**
@@ -104,6 +116,7 @@ int main(void)
   MX_SPI1_Init();
   MX_CAN1_Init();
   MX_TIM2_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   ADXL.SPIMode = SPIMODE_4WIRE;
   ADXL.Rate = BWRATE_800;
@@ -127,22 +140,24 @@ int main(void)
   {
 //	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 //	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	  knobRotation_P = Knob_Rotation_Percent()*100;
 
 	  //180 deg -> CCR = 125, 0 deg -> CCR = 25
-	  if (dirction == 0){
-		  for (int i = 25; i < 125; i++){
-			  htim2.Instance->CCR1 = i;
-			  HAL_Delay(5);
-		  }
-		  dirction = 1;
-	  } else {
-		  for (int i = 125; i > 25; i--){
-			  htim2.Instance->CCR1 = i;
-			  HAL_Delay(5);
-		  }
-		  dirction = 0;
-	  }
+//	  if (dirction == 0){
+//		  for (int i = 25; i < 125; i++){
+//			  htim2.Instance->CCR1 = i;
+//			  HAL_Delay(5);
+//		  }
+//		  dirction = 1;
+//	  } else {
+//		  for (int i = 125; i > 25; i--){
+//			  htim2.Instance->CCR1 = i;
+//			  HAL_Delay(5);
+//		  }
+//		  dirction = 0;
+//	  }
 
+	  htim2.Instance->CCR1 = knobRotation_P + 25;
 
 
 	  ADXL_getAccel(accelData, OUTPUT_SIGNED);
@@ -151,7 +166,7 @@ int main(void)
 	  yOut_g = accelData[1]/255.0*9.8;
 	  zOut_g = accelData[2]/255.0*9.8;
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	  HAL_Delay(500);
+	  HAL_Delay(50);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -198,6 +213,58 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_10;
+  sConfig.Rank = ADC_REGULAR_RANK_1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -348,6 +415,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();

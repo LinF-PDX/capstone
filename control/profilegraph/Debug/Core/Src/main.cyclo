@@ -1,7 +1,9 @@
-../Core/Src/main.c:79:5:main	4
-../Core/Src/main.c:166:6:SystemClock_Config	3
-../Core/Src/main.c:208:13:MX_CAN1_Init	2
-../Core/Src/main.c:245:13:MX_SPI1_Init	2
-../Core/Src/main.c:285:13:MX_TIM2_Init	6
-../Core/Src/main.c:344:13:MX_GPIO_Init	1
-../Core/Src/main.c:377:6:Error_Handler	1
+../Core/Src/main.c:76:7:Knob_Rotation_Percent	1
+../Core/Src/main.c:91:5:main	1
+../Core/Src/main.c:181:6:SystemClock_Config	3
+../Core/Src/main.c:223:13:MX_ADC1_Init	3
+../Core/Src/main.c:275:13:MX_CAN1_Init	2
+../Core/Src/main.c:312:13:MX_SPI1_Init	2
+../Core/Src/main.c:352:13:MX_TIM2_Init	6
+../Core/Src/main.c:411:13:MX_GPIO_Init	1
+../Core/Src/main.c:445:6:Error_Handler	1
