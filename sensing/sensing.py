@@ -121,10 +121,14 @@ class Sensing():
                 if slope != np.inf:
                     x_top = (y_top - intercept) / slope
                     intersection_points.append((int(x_top), int(y_top)))
+                else:
+                    intersection_points.append((int(x1), int(y_top)))
                 y_bottom = height - 1
                 if slope != np.inf:
                     x_bottom = (y_bottom - intercept) / slope
                     intersection_points.append((int(x_bottom), int(y_bottom)))
+                else:
+                    intersection_points.append((int(x1), int(y_bottom)))
             rectangle=np.array(intersection_points).reshape(4,2)
             if abs(np.min(rectangle[rectangle[:, 1] > np.mean(rectangle[:, 1])]) - np.max(rectangle[rectangle[:, 1] < np.mean(rectangle[:, 1])])) < 250: #Error handling If the distance between two side is too small.
                 rectangle=roi
