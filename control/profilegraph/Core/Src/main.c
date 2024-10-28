@@ -58,6 +58,7 @@ static float yOut_g;
 static float zOut_g;
 uint8_t dirction = 0;
 uint8_t knobRotation_P = 0;
+uint8_t deviceAddr = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -117,20 +118,25 @@ int main(void)
   MX_CAN1_Init();
   MX_TIM2_Init();
   MX_ADC1_Init();
+
+
   /* USER CODE BEGIN 2 */
   ADXL.SPIMode = SPIMODE_4WIRE;
   ADXL.Rate = BWRATE_800;
   ADXL.Range = RANGE_2G;
   ADXL.Resolution = RESOLUTION_FULL;
 
+
 //  if (ADXL_Init(&ADXL)!= ADXL_OK){
 //	  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
 //	  Error_Handler();
 //  }
   ADXL_Init(&ADXL);
-  ADXL_Measure(ON);
+//  ADXL_Measure(ON);
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+
+
 
   /* USER CODE END 2 */
 

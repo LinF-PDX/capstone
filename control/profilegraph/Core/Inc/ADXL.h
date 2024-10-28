@@ -42,7 +42,7 @@ extern SPI_HandleTypeDef SPIhandler;
 
 
 // Registers' Address 
-#define DEVID 					0x0
+#define DEVID 					0x00
 #define BW_RATE					0x2C 
 #define DATA_FORMAT 			0x31
 #define FIFO_CTL 				0x38
