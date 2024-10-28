@@ -4,6 +4,8 @@ import cv2
 
 #video_path = 'D:/capstone/capstone/sensing/test_video/test.mp4'
 cap = cv2.VideoCapture(0)
+#image_path = 'D:/capstone/test21.jpg'
+#img = cv2.imread(image_path)
 cap.set(3, 1080)
 cap.set(4, 720)
 ret, img = cap.read()

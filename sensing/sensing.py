@@ -80,7 +80,7 @@ class Sensing():
             return cross[0][0]
     
     def pt(self,image): #perspective transformation
-        roi = np.array([[351,1],[85,1],[53,296],[391,296]]) 
+        roi = np.array([[325,0],[43,1],[6,298],[361,298]])
         #      b,a,d,c
         #      a------b
         #      |      |
@@ -95,7 +95,7 @@ class Sensing():
 
         rectangle = np.array(0)
         #Find all the lines in the photo
-        lines = cv2.HoughLinesP(canny,1,np.pi/180, threshold = 60, minLineLength = 250, maxLineGap = 45)
+        lines = cv2.HoughLinesP(canny,1,np.pi/180, threshold = 60, minLineLength = 200, maxLineGap = 45)
 
         vertical_lines = []
         height, width = image.shape[:2]
@@ -126,8 +126,9 @@ class Sensing():
                     x_bottom = (y_bottom - intercept) / slope
                     intersection_points.append((int(x_bottom), int(y_bottom)))
             rectangle=np.array(intersection_points).reshape(4,2)
-            if np.min(rectangle[rectangle[:, 1] > np.mean(rectangle[:, 1])]) - np.max(rectangle[rectangle[:, 1] < np.mean(rectangle[:, 1])]) < 400: #Error handling If the distance between two side is too small.
+            if abs(np.min(rectangle[rectangle[:, 1] > np.mean(rectangle[:, 1])]) - np.max(rectangle[rectangle[:, 1] < np.mean(rectangle[:, 1])])) < 250: #Error handling If the distance between two side is too small.
                 rectangle=roi
+            #rectangle=roi
         #Using four dots as the corner of target board
         board_x = 0
         x_mean = np.mean(rectangle[:, 0])
@@ -167,8 +168,8 @@ class Sensing():
             lower_color = np.array([160, 20, 200])
             upper_color = np.array([180, 120, 255])
         elif self.laser_color == "green":
-            lower_color = np.array([35, 100, 100])
-            upper_color = np.array([85, 255, 255])
+            lower_color = np.array([68, 27, 240])
+            upper_color = np.array([90, 80, 255])
         else:
             pass
 
