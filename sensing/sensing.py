@@ -1,4 +1,3 @@
-
 import os
 import cv2
 import numpy as np
@@ -24,18 +23,19 @@ class Sensing():
         self.laser_color = laser_color #Color of Laser
         self.resolution = [1080,720]
         self.gpu = gpu
+        self.cross = []
     def find_cross(self,image): #Find the center cross coordinate
         #image processing to find the cross line clearly
         gray_cross = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(gray_cross, (5, 5), 0)
-        side = cv2.Canny(blur, 40, 100)
+        side = cv2.Canny(gray_cross, 40, 100)
         kernel_erode = np.ones((3,3),np.uint8)
         
         dilate = cv2.dilate(side, kernel_erode, iterations=2)
         eroded = cv2.erode(dilate, kernel_erode, iterations=2)
         
-        kernel1 = cv2.getStructuringElement(cv2.MORPH_RECT, (70, 1))
+        kernel1 = cv2.getStructuringElement(cv2.MORPH_RECT, (50, 1))
         kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 50))
+        kernel3 = cv2.getStructuringElement(cv2.MORPH_CROSS, (13, 13))
         
         hline = cv2.morphologyEx(eroded, cv2.MORPH_OPEN, kernel1)
         vline = cv2.morphologyEx(eroded, cv2.MORPH_OPEN, kernel2)
@@ -43,44 +43,75 @@ class Sensing():
         
         contours, _ = cv2.findContours(hline, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         #create a blackboard to draw line detected
-        black = np.zeros(hline.shape, dtype=np.uint8)
+        zero = np.zeros(hline.shape, dtype=np.uint8)
         max_area = 0
         index = 0
-        
+        image_height, image_width, _ = image.shape
         #draw largest area horizontal line on blackboard
         for i in range(len(contours)):
-            area = cv2.contourArea(contours[i])
-            if area > max_area:
-                max_area = area
-                index = i
-                cv2.drawContours(black, contours, index, (255, 255, 255), -1)
+            height = contours[i][:,0,1]
+            max_h = np.max(height)
+            min_h = np.min(height)
+            ave_h = (max_h + min_h)/2
+            if ave_h >= 1/5*image_height and ave_h <= 4/5*image_height:
+                area = cv2.contourArea(contours[i])
+                if area > max_area:
+                    max_area = area
+                    index = i
+                    cv2.drawContours(zero, contours, index, (255, 255, 255), -1)
                 
         contours1, _ = cv2.findContours(vline, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         max_area1 = 0
         index1 = 0
         #draw largest area vertical line on blackboard
         for i in range(len(contours1)):
-            area = cv2.contourArea(contours1[i])
-            if area > max_area1:
-                max_area1 = area
-                index1 = i
-                cv2.drawContours(black, contours1, index1, (255, 255, 255), -1)
+            width = contours1[i][:,0,0]
+            max_w = np.max(width)
+            min_w = np.min(width)
+            ave_w = (max_w + min_w)/2
+            if ave_w >= 1/5*image_width and ave_w <= 4/5*image_width:
+                area = cv2.contourArea(contours1[i])
+                if area > max_area1:
+                    max_area1 = area
+                    index1 = i
+                    cv2.drawContours(zero, contours1, index1, (255, 255, 255), -1)
         #Find the Center Points of Two Lines
-        kernel3 = cv2.getStructuringElement(cv2.MORPH_CROSS, (13, 13))
-        mask = cv2.morphologyEx(black, cv2.MORPH_OPEN, kernel3)
+        
+        mask = cv2.morphologyEx(zero, cv2.MORPH_OPEN, kernel3)
         
         combine, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         #Error handling
         if len(combine) == 0:
-            return -1
+            cv2.circle(image, (int(self.cross[0]),int(self.cross[1])), 2, (0, 0, 255), -1)
+            return self.cross[0]
         else:
             cross = cv2.minAreaRect(combine[0])
             center = (int(cross[0][0]), int(cross[0][1]))
             cv2.circle(image, center, 2, (0, 0, 255), -1)
+            if self.cross == []:
+                self.cross = [cross[0][0], cross[0][1]]
             return cross[0][0]
+        
+    def adjust_lightness(self,image):
+        b,g,r = cv2.split(image)
+        b_d = cv2.dilate(b, np.ones((11,11), np.uint8))
+        blur_b = cv2.medianBlur(b_d, 21)
+        diff_b = 255 - cv2.absdiff(b, blur_b)
+        norm_b = cv2.normalize(diff_b, None, alpha=100, beta=210, norm_type=cv2.NORM_MINMAX)
+        g_d = cv2.dilate(g, np.ones((11,11), np.uint8))
+        blur_g = cv2.medianBlur(g_d, 21)
+        diff_g = 255 - cv2.absdiff(g, blur_g)
+        norm_g = cv2.normalize(diff_g, None, alpha=100, beta=210, norm_type=cv2.NORM_MINMAX)
+        r_d = cv2.dilate(r, np.ones((11,11), np.uint8))
+        blur_r = cv2.medianBlur(r_d, 21)
+        diff_r = 255 - cv2.absdiff(r, blur_r)
+        norm_r = cv2.normalize(diff_r, None, alpha=100, beta=210, norm_type=cv2.NORM_MINMAX)
+        normalized_image = cv2.merge([norm_b,norm_g,norm_r])
+        return normalized_image
     
+        #cite https://stackoverflow.com/questions/19181485/splitting-image-using-opencv-in-python
     def pt(self,image): #perspective transformation
-        roi = np.array([[325,0],[43,1],[6,298],[361,298]])
+        roi = np.array([[338,0],[76,0],[37,297],[374,297]])
         #      b,a,d,c
         #      a------b
         #      |      |
@@ -88,6 +119,7 @@ class Sensing():
         #measured by test_color.py
         #image processing to find the target board clearly
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        
         blur = cv2.GaussianBlur(gray,(5, 5),0)
         kernel = np.ones((7, 7), np.uint8)
         closed = cv2.morphologyEx(blur, cv2.MORPH_CLOSE, kernel)
@@ -132,7 +164,6 @@ class Sensing():
             rectangle=np.array(intersection_points).reshape(4,2)
             if abs(np.min(rectangle[rectangle[:, 1] > np.mean(rectangle[:, 1])]) - np.max(rectangle[rectangle[:, 1] < np.mean(rectangle[:, 1])])) < 250: #Error handling If the distance between two side is too small.
                 rectangle=roi
-            #rectangle=roi
         #Using four dots as the corner of target board
         board_x = 0
         x_mean = np.mean(rectangle[:, 0])
@@ -163,6 +194,7 @@ class Sensing():
         board_x = maxWidth - 1
         matrix = cv2.getPerspectiveTransform(lazer_board, transformed)
         image = cv2.warpPerspective(image,matrix,(maxWidth,maxHeight))
+        image = self.adjust_lightness(image)
         return image, board_x
 
     def find_circle(self,image): #Find the center of circle/eclipse/half circle created by red laser
@@ -176,29 +208,31 @@ class Sensing():
             upper_color = np.array([90, 80, 255])
         else:
             pass
-
-        mask = cv2.inRange(hsv, lower_color, upper_color)
-
-        blur = cv2.GaussianBlur(mask, (5, 5), 0)
-
         kernel = np.ones((5,5),np.uint8)
-
-        kernel_erode = np.ones((3,3),np.uint8)
-
-        eroded = cv2.erode(blur, kernel_erode, iterations=1)
-        dilate = cv2.dilate(eroded, kernel_erode, iterations=2)
-
-        mask = cv2.morphologyEx(dilate, cv2.MORPH_CLOSE, kernel)
-
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
+        kernel_dilate = np.ones((5,5),np.uint8)
+        
+        mask = cv2.inRange(hsv, lower_color, upper_color)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        
+        dilate = cv2.dilate(mask, kernel_dilate, iterations=3)
+        
+        blur = cv2.GaussianBlur(dilate, (7, 7), 0)
+        contours, _ = cv2.findContours(blur, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        areas = [cv2.contourArea(cnt) for cnt in contours]
+        if len(areas) == 0:
+            sorted_contours = contours
+        else:
+            _ , sorted_contours = zip(*sorted(zip(areas, contours), key=lambda x: x[0], reverse=True))
         mask = np.zeros_like(mask)
-
+        
         target_x = 0
         #Using similarity of the laser dot to a circle to find the center point
-        for contour in contours:
+        for contour in sorted_contours:
             (x, y), radius = cv2.minEnclosingCircle(contour)
-            circularity = (4 * np.pi * cv2.contourArea(contour)) / (cv2.arcLength(contour, True) ** 2)
+            if cv2.arcLength(contour, True) == 0 or cv2.contourArea(contour) < 100:
+                continue
+            else:
+                circularity = (4 * np.pi * cv2.contourArea(contour)) / (cv2.arcLength(contour, True) ** 2)
             if circularity >= 0.7:
                 cv2.drawContours(mask, [contour], -1, (255), thickness=cv2.FILLED)
                 cv2.circle(image, (int(x), int(y)), 2, (0, 0, 255), -1)
@@ -218,18 +252,11 @@ class Sensing():
         target_x = self.find_circle(img)
         target_cross = self.find_cross(img)
         cv2.imshow('Camera', img)
-        if target_cross == -1:
-            if target_x == 0:
-                return "No Circle Detected"
-            else:
-                dis_off = (target_x-board_x/2)/board_x*self.actual_x
-                return dis_off
+        if target_x == 0:
+            return "No Circle Detected"
         else:
-            if target_x == 0:
-                return "No Circle Detected"
-            else:
-                dis_off = (target_x - target_cross)/board_x*self.actual_x
-                return dis_off
+            dis_off = (target_x - target_cross)/board_x*self.actual_x
+            return dis_off
     
     def start_sensing(self): #final api for use (not functional now)
         while self.on == 1:
@@ -278,6 +305,7 @@ class Sensing():
 
         self.cap.release()
         cv2.destroyAllWindows()
+    
     def communication(self,value):
         #Create Communication Protocol with STM32
         pass
