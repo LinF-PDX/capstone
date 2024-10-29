@@ -74,7 +74,7 @@ static void readRegister(uint8_t address,uint8_t * value, uint8_t num)
 		address &= ~(0x40);
 		
 		// Setting R/W = 1, i.e.: Read Mode
-    address |= (0x80);		
+    address |= (0x01);
 		
 	HAL_GPIO_WritePin(ADXLCS_GPIO_Port,ADXLCS_Pin,GPIO_PIN_RESET);
 	HAL_SPI_Transmit(&SPIhandler,&address,1,10);
