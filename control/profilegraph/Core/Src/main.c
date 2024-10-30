@@ -49,6 +49,13 @@ SPI_HandleTypeDef hspi1;
 TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
+CAN_TxHeaderTypeDef TxHeader;
+CAN_RxHeaderTypeDef RxHeader;
+uint8_t TxData[8];
+uint8_t RxData[8];
+uint32_t TxMailbox;
+
+
 ADXL_InitTypeDef ADXL;
 adxlStatus adxlSts;
 int16_t accelData[3];
@@ -69,7 +76,7 @@ static void MX_CAN1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void CAN_Config(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -118,13 +125,34 @@ int main(void)
   MX_CAN1_Init();
   MX_TIM2_Init();
   MX_ADC1_Init();
-
-
   /* USER CODE BEGIN 2 */
+
+  CAN_Config();
+
+  if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK) {
+	  Error_Handler();
+  }
+
   ADXL.SPIMode = SPIMODE_4WIRE;
   ADXL.Rate = BWRATE_800;
   ADXL.Range = RANGE_2G;
   ADXL.Resolution = RESOLUTION_FULL;
+
+  TxHeader.StdId = 0x123;
+  TxHeader.DLC = 8;
+  TxHeader.IDE = CAN_ID_STD;
+  TxHeader.RTR = CAN_RTR_DATA;
+  TxHeader.TransmitGlobalTime = DISABLE;
+
+  TxData[0] = 0x01;
+  TxData[1] = 0x02;
+  TxData[2] = 0x03;
+  TxData[3] = 0x04;
+  TxData[4] = 0x05;
+  TxData[5] = 0x06;
+  TxData[6] = 0x07;
+  TxData[7] = 0x08;
+
 
 
 //  if (ADXL_Init(&ADXL)!= ADXL_OK){
@@ -138,6 +166,7 @@ int main(void)
 
 
 
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -145,25 +174,14 @@ int main(void)
   while (1)
   {
 //	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-//	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+
+	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
+
 	  knobRotation_P = Knob_Rotation_Percent()*100;
 
 	  //180 deg -> CCR = 125, 0 deg -> CCR = 25
-//	  if (dirction == 0){
-//		  for (int i = 25; i < 125; i++){
-//			  htim2.Instance->CCR1 = i;
-//			  HAL_Delay(5);
-//		  }
-//		  dirction = 1;
-//	  } else {
-//		  for (int i = 125; i > 25; i--){
-//			  htim2.Instance->CCR1 = i;
-//			  HAL_Delay(5);
-//		  }
-//		  dirction = 0;
-//	  }
-
-	  htim2.Instance->CCR1 = knobRotation_P + 25;
+//	  htim2.Instance->CCR1 = knobRotation_P + 25;
 
 
 	  ADXL_getAccel(accelData, OUTPUT_SIGNED);
@@ -172,7 +190,7 @@ int main(void)
 	  yOut_g = accelData[1]/255.0*9.8;
 	  zOut_g = accelData[2]/255.0*9.8;
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	  HAL_Delay(50);
+	  HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -295,7 +313,7 @@ static void MX_CAN1_Init(void)
   hcan1.Init.TimeSeg1 = CAN_BS1_13TQ;
   hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
   hcan1.Init.TimeTriggeredMode = DISABLE;
-  hcan1.Init.AutoBusOff = DISABLE;
+  hcan1.Init.AutoBusOff = ENABLE;
   hcan1.Init.AutoWakeUp = DISABLE;
   hcan1.Init.AutoRetransmission = DISABLE;
   hcan1.Init.ReceiveFifoLocked = DISABLE;
@@ -441,6 +459,48 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+static void CAN_Config(void)
+{
+	CAN_FilterTypeDef sFilterConfig;
+	sFilterConfig.FilterBank = 13;
+	sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+	sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+	sFilterConfig.FilterIdHigh = 0x0000;
+	sFilterConfig.FilterIdLow = 0x0000;
+	sFilterConfig.FilterMaskIdHigh = 0x0000; //Only ID 0x284 and 0x285 can pass through
+	sFilterConfig.FilterMaskIdLow = 0x0000;
+	sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+	sFilterConfig.FilterActivation = ENABLE;
+	sFilterConfig.SlaveStartFilterBank = 0;
+
+	if (HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig) != HAL_OK)
+	{
+		/* Filter configuration Error */
+		Error_Handler();
+	}
+
+	if (HAL_CAN_Start(&hcan1) != HAL_OK)
+	{
+		/* Start Error */
+		Error_Handler();
+	}
+}
+
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
+
+	//Get Rx message
+	if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK) {
+		HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+		Error_Handler();
+	}
+
+	if (RxHeader.StdId == 0x234) {
+		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+	}
+
+}
+
+
 
 /* USER CODE END 4 */
 
