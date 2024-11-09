@@ -45,7 +45,7 @@ static void writeRegister(uint8_t address,uint8_t value)
 		address = 63;
 	
 	// Setting R/W = 0, i.e.: Write Mode
-    address &= ~(0x80);
+		address = (address << 1 & ~0x01);
 
 	HAL_GPIO_WritePin(ADXLCS_GPIO_Port,ADXLCS_Pin,GPIO_PIN_RESET);
 	HAL_SPI_Transmit(&SPIhandler,&address,1,10);
@@ -74,7 +74,7 @@ static void readRegister(uint8_t address,uint8_t * value, uint8_t num)
 		address &= ~(0x40);
 		
 		// Setting R/W = 1, i.e.: Read Mode
-    address |= (0x01);
+		address = (address << 1 | 0x01);
 		
 	HAL_GPIO_WritePin(ADXLCS_GPIO_Port,ADXLCS_Pin,GPIO_PIN_RESET);
 	HAL_SPI_Transmit(&SPIhandler,&address,1,10);
@@ -187,8 +187,8 @@ adxlStatus ADXL_Init(ADXL_InitTypeDef * adxl)
 	HAL_Delay(5);
 	uint8_t testval = 0;
 	// The Device Address register is constant, i.e. = 0xE5
-	readRegister(DEVID,&testval,1);
-	if (testval != 0xE5) return ADXL_ERR;
+	readRegister(DEVID_AD,&testval,1);
+	if (testval != 0xAD) return ADXL_ERR;
 	// Init. of BW_RATE and DATAFORMAT registers
 	adxlBW(adxl);
 	adxlFormat(adxl);
