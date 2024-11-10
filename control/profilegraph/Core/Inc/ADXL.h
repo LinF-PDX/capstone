@@ -7,7 +7,8 @@
 						Some GPIOs
 * @Author Iman Hosseinzadeh iman[dot]hosseinzadeh AT gmail
   https://github.com/ImanHz
-						
+
+  @Revised for ADXL355 by Lin Fu
 */
  /**
     This program is free software: you can redistribute it and/or modify
@@ -42,8 +43,10 @@ extern SPI_HandleTypeDef SPIhandler;
 
 
 // Registers' Address 
+
+//ADXL345
 #define DEVID_AD				0x00
-#define BW_RATE					0x2C 
+#define BW_RATE					0x2C
 #define DATA_FORMAT 			0x31
 #define FIFO_CTL 				0x38
 #define DATA0					0x32
@@ -67,6 +70,69 @@ extern SPI_HandleTypeDef SPIhandler;
 #define INT_SOURCE				0x30
 
 
+/**
+ * @brief ADXL355 register address list
+ *
+ * @{
+ */
+#define DEVID_AD                 0x00
+#define DEVID_MST                0x01
+#define PARTID                   0x02
+#define REVID                    0x03
+#define STATUS                   0x04
+#define FIFO_ENTRIES             0x05
+#define TEMP2                    0x06
+#define TEMP1                    0x07
+#define XDATA3                   0x08
+#define XDATA2                   0x09
+#define XDATA1                   0x0A
+#define YDATA3                   0x0B
+#define YDATA2                   0x0C
+#define YDATA1                   0x0D
+#define ZDATA3                   0x0E
+#define ZDATA2                   0x0F
+#define ZDATA1                   0x10
+#define FIFO_DATA                0x11
+#define OFFSET_X_H               0x1E
+#define OFFSET_X_L               0x1F
+#define OFFSET_Y_H               0x20
+#define OFFSET_Y_L               0x21
+#define OFFSET_Z_H               0x22
+#define OFFSET_Z_L               0x23
+#define ACT_EN                   0x24
+#define ACT_THRESH_H             0x25
+#define ACT_THRESH_L             0x26
+#define ACT_COUNT                0x27
+#define FILTER                   0x28
+#define FIFO_SAMPLES             0x29
+#define INT_MAP                  0x2A
+#define SYNC                     0x2B
+#define RANGE                    0x2C
+#define POWER_CTL                0x2D
+#define SELF_TEST                0x2E
+#define ADXL_RESET                0x2F
+/** @} */
+
+//Register default values
+#define DEVID_AD_DEFAULT_VAL	0XAD
+#define DEVID_MST_DEFAULT_VAL	0x1D
+#define PARTID_DEFAULT_VAL		0xED
+#define REVID_DEFAULT_VAL		0X01
+
+/**
+ * @brief   ADXL355 accelerometer subsystem characteristics.
+ * @note    Sensitivity is expressed as milli-G/LSB whereas
+ *          1 milli-G = 0.00980665 m/s^2.
+ * @note    Bias is expressed as milli-G.
+ *
+ * @{
+ */
+#define ADXL355_ACC_SENS_2G                 0.003906f
+#define ADXL355_ACC_SENS_4G                 0.007813f
+#define ADXL355_ACC_SENS_8G                 0.015625f
+#define ADXL355_ACC_BIAS                    0.0f
+/** @} */
+
 // Init return values
 typedef enum {ADXL_OK,ADXL_ERR} adxlStatus;
 
@@ -74,32 +140,14 @@ typedef enum {ADXL_OK,ADXL_ERR} adxlStatus;
 typedef enum {ON,OFF} Switch;
 
 // Init. Definitions
-#define SPIMODE_3WIRE 1
-#define SPIMODE_4WIRE 0
+#define TEMP_ON 0
+#define TEMP_OFF 1
 
-#define LPMODE_NORMAL 0
-#define LPMODE_LOWPOWER 1
+#define DRDY_ON 0
+#define DRDY_OFF 1
 
-#define BWRATE_6_25 	6
-#define BWRATE_12_5 	7
-#define BWRATE_25 		8
-#define BWRATE_50 		9
-#define BWRATE_100		10
-#define BWRATE_200		11
-#define BWRATE_400		12
-#define BWRATE_800		13
-#define BWRATE_1600   	14
-#define BWRATE_3200   	15
-
-#define BWRATE_12_5 	7
-#define BWRATE_25 		8
-#define BWRATE_50 		9
-#define BWRATE_100		10
-#define BWRATE_200		11
-#define BWRATE_400		12
-
-#define INT_ACTIVEHIGH 0
-#define INT_ACTIVELOW  1
+#define INT_ACTIVELOW 0
+#define INT_ACTIVEHIGH  1
 
 #define RESOLUTION_FULL  1
 #define RESOLUTION_10BIT 0
@@ -115,10 +163,9 @@ typedef enum {ON,OFF} Switch;
 #define SLEEP_RATE_4HZ 1
 #define SLEEP_RATE_8HZ 0
 
-#define RANGE_2G  0
-#define RANGE_4G  1
-#define RANGE_8G  2
-#define RANGE_16G 3
+#define RANGE_2G  0b01
+#define RANGE_4G  0b10
+#define RANGE_8G  0b11
 
 #define AUTOSLEEPON  1
 #define AUTOSLEEPOFF 0
@@ -128,15 +175,10 @@ typedef enum {ON,OFF} Switch;
 
 // Init Type Def
 typedef struct {
-	uint8_t SPIMode;
+	uint8_t TempMode;
+	uint8_t DrdyMode;
 	uint8_t IntMode;
-	uint8_t LPMode;
-	uint8_t Rate;
 	uint8_t Range;
-	uint8_t Resolution;
-	uint8_t Justify;
-	uint8_t AutoSleep;
-	uint8_t LinkMode;
 }ADXL_InitTypeDef;
 
 	
@@ -238,17 +280,8 @@ adxlStatus ADXL_Init(ADXL_InitTypeDef * adxl);
 
 
 
- // ADXL_getAccel function definitions 
-#define OUTPUT_FLOAT  0
-#define OUTPUT_SIGNED 1
-
-/** Reading Data
-* @retval : data				: array of accel. 
-* @param	:	outputType	: OUTPUT_SIGNED: signed int
-						      OUTPUT_FLOAT: float
-						if output is float, the GAIN(X-Y-Z) should be defined in definitions.
-*/
-void ADXL_getAccel(void *Data,uint8_t outputType);
+void ADXL_getAccelRaw(void *Data);
+void ADXL_getAccelFloat(void *pData);
 
 /** Starts Measure Mode
 * @param: s = ON or OFF				

@@ -132,10 +132,10 @@ int main(void)
 	  Error_Handler();
   }
 
-  ADXL.SPIMode = SPIMODE_4WIRE;
-  ADXL.Rate = BWRATE_800;
+  ADXL.TempMode = TEMP_OFF;
+  ADXL.DrdyMode = DRDY_ON;
+  ADXL.IntMode = INT_ACTIVELOW;
   ADXL.Range = RANGE_2G;
-  ADXL.Resolution = RESOLUTION_FULL;
 
   TxHeader.StdId = 0x123;
   TxHeader.DLC = 8;
@@ -183,7 +183,7 @@ int main(void)
 //	  htim2.Instance->CCR1 = knobRotation_P + 25;
 
 
-	  ADXL_getAccel(accelData, OUTPUT_SIGNED);
+	  ADXL_getAccelRaw(accelData);
 
 	  xOut_g = accelData[0]/255.0*9.8;
 	  yOut_g = accelData[1]/255.0*9.8;

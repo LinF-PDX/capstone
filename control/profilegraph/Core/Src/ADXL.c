@@ -6,7 +6,8 @@
 						Some GPIOs
 * @Author Iman Hosseinzadeh iman[dot]hosseinzadeh AT gmail
   https://github.com/ImanHz
-						
+
+  @Revised for ADXL355 by Lin Fu
 */
  /**
     This program is free software: you can redistribute it and/or modify
@@ -34,11 +35,13 @@
 	float GAINY = 0.0f;
 	float GAINZ = 0.0f;
 	
-/** Writing ADXL Registers. 
-* @address: 8-bit address of register
-* @value  : 8-bit value of corresponding register
-* Since the register values to be written are 8-bit, there is no need to multiple writing
-*/
+/**
+ * @brief Writing ADXL Registers.
+ * @param address 8-bit address of register
+ * @param value Data to be sent
+ * @retval none
+ * @note Since the register values to be written are 8-bit, there is no need to multiple writing
+ */
 static void writeRegister(uint8_t address,uint8_t value)
 {
 		if (address > 63)
@@ -56,22 +59,16 @@ static void writeRegister(uint8_t address,uint8_t value)
 }
 
 
-/** Reading ADXL Registers. 
-* @address: 8-bit address of register
-* @retval value  : array of 8-bit values of corresponding register
-* @num		: number of bytes to be written
-*/
-
+/** @brief Reading ADXL Registers.
+ * 	@param address 8-bit address of register
+ *	@param value Pointer to buffer that stores the read value
+ *	@param num Number of bytes to be written
+ * 	@retval none
+ */
 static void readRegister(uint8_t address,uint8_t * value, uint8_t num)
 {
 		if (address > 63)
 		address = 63;
-		
-		// Multiple Byte Read Settings
-		if (num > 1)
-		address |= 0x40;
-		else	
-		address &= ~(0x40);
 		
 		// Setting R/W = 1, i.e.: Read Mode
 		address = (address << 1 | 0x01);
@@ -83,64 +80,6 @@ static void readRegister(uint8_t address,uint8_t * value, uint8_t num)
 	
 	
 }
-
-
-/**
-Bandwidth Settings:
- Setting BW_RATE register
- BWRATE[4] = LOW POWER SETTING
- BWRATE[0-3] = DATA RATE i.e. 0110 for 6.25 Hz // See Table 6,7
- @param LPMode = 0 // Normal mode, Default
-							 = 1 // Low Power Mode
- @param BW : Badwidth; See Tables 6 and 7
-				
-								NORMAL MODE
-				BW value 	|  Output Data Rate (Hz)
-				---------------------------------
-						6 		|  				6.25 // Default		
-						7 		|  				12.5		
-						8 		|  				25
-						9 		|  				50		
-						10 		|  				100
-						11 		|  				200
-						12 		|  				400
-						13 		|  				800
-						14 		|  				1600
-						15 		|  				3200
-								
-								
-								LOWPOWER MODE
-				BW value 	|  Output Data Rate (Hz)
-				---------------------------------
-						7 		|  				12.5	// Default
-						8 		|  				25
-						9 		|  				50		
-						10 		|  				100
-						11 		|  				200
-						12 		|  				400
-			*/
-static void adxlBW(ADXL_InitTypeDef * adxl)
-		{
-		uint8_t bwreg=0;
-		writeRegister(BW_RATE,bwreg);
-		if (adxl->LPMode == LPMODE_LOWPOWER) 
-						{
-						// Low power mode
-						bwreg |= (1 << 4);
-						if ( ((adxl->Rate) <7) && ((adxl->Rate)>12) ) bwreg += 7;
-								else bwreg +=(adxl->Rate);
-						writeRegister(BW_RATE,bwreg);	
-						} 
-		else
-				{
-				// Normal Mode
-	
-				if ( ((adxl->Rate) <6) && ((adxl->Rate)>15) ) bwreg += 6;
-						else bwreg +=(adxl->Rate);
-				writeRegister(BW_RATE,bwreg);	
-				}
-		}
-
 	
 /**
 	Data Format Settings
@@ -170,10 +109,12 @@ static void adxlBW(ADXL_InitTypeDef * adxl)
 static void adxlFormat(ADXL_InitTypeDef * adxl)
 			{
 			uint8_t formatreg=0;
-			writeRegister(DATA_FORMAT,formatreg);
-			formatreg = (adxl->SPIMode << 6) | (adxl->IntMode << 5) | (adxl->Justify << 2) | (adxl->Resolution << 3);
-			formatreg += (adxl -> Range);
-			writeRegister(DATA_FORMAT,formatreg);
+			writeRegister(RANGE,formatreg);
+			formatreg = (adxl->IntMode << 6 | adxl->Range) & 0b01000011;
+			writeRegister(RANGE,formatreg);
+
+			formatreg = 0;
+			writeRegister(POWER_CTL, formatreg);
 			}
 
 // Public Functions
@@ -185,80 +126,70 @@ adxlStatus ADXL_Init(ADXL_InitTypeDef * adxl)
 	HAL_GPIO_WritePin(ADXLCS_GPIO_Port,ADXLCS_Pin,GPIO_PIN_SET);
 	// Unknown delay should apply
 	HAL_Delay(5);
-	uint8_t testval = 0;
-	// The Device Address register is constant, i.e. = 0xE5
-	readRegister(DEVID_AD,&testval,1);
-	if (testval != 0xAD) return ADXL_ERR;
+	uint8_t testval[2] = {};
+	// The Device Address register is constant, i.e. = 0xAD
+	readRegister(DEVID_AD, testval, 2);
+	if (testval[0] != DEVID_AD_DEFAULT_VAL || testval[1] != DEVID_MST_DEFAULT_VAL) return ADXL_ERR;
+
 	// Init. of BW_RATE and DATAFORMAT registers
-	adxlBW(adxl);
 	adxlFormat(adxl);
 	
 	// Settings gains 
-	if (adxl->Resolution == RESOLUTION_10BIT)
-			{
-			switch (adxl->Range) {
-							case RANGE_2G:
-								GAINX = GAINY = GAINZ = 1/255.0f;
-								break;
-							case RANGE_4G:
-								GAINX = GAINY = GAINZ = 1/127.0f;
-								break;
-							case RANGE_8G:
-								GAINX = GAINY = GAINZ = 1/63.0f;
-								break;
-							case RANGE_16G:
-								GAINX = GAINY = GAINZ = 1/31.0f;
-								break;
-								}
-			} else 
-			{
-			GAINX = GAINY = GAINZ = 1/255.0f;
-			}
-	// Setting AutoSleep and Link bits
-			uint8_t reg;
-			readRegister(POWER_CTL,&reg,1);
-			if ( (adxl->AutoSleep) == AUTOSLEEPON) reg |= (1 << 4); else reg &= ~(1 << 4);
-			if ( (adxl->LinkMode) == LINKMODEON) reg |= (1 << 5); else reg &= ~(1 << 5);
-			writeRegister(POWER_CTL,reg);
+	switch (adxl->Range) {
+		case RANGE_2G:
+			GAINX = GAINY = GAINZ = ADXL355_ACC_SENS_2G;
+			break;
+		case RANGE_4G:
+			GAINX = GAINY = GAINZ = ADXL355_ACC_SENS_4G;
+			break;
+		case RANGE_8G:
+			GAINX = GAINY = GAINZ = ADXL355_ACC_SENS_8G;
+			break;
+		default:
+			GAINX = GAINY = GAINZ = ADXL355_ACC_SENS_2G;
+}
 			
 	return ADXL_OK;
 	
 }
 
 
-/** Reading Data
-* @retval : data				: array of accel. 
-						outputType	: OUTPUT_SIGNED: signed int
-													OUTPUT_FLOAT: float
-						if output is float, the GAIN(X-Y-Z) should be defined in definitions.
-* @usage :	Depending on your desired output, define an array of type uint16_t or float with 3 cells:
-						uint16_t acc[3];
-						ADXL_getAccel(acc,OUTPUT_SIGNED);
-						and so on...
-*/
-void ADXL_getAccel(void *Data , uint8_t outputType)
-	{
-	uint8_t data[6]={0,0,0,0,0,0};	
-	readRegister(DATA0,data,6);
-	
-	
-	if (outputType == OUTPUT_SIGNED)
-		{
-		int16_t * acc = Data;	
-	  // Two's Complement
-	  acc[0] = (int16_t) ((data[1]*256+data[0]));
-	  acc[1] = (int16_t) ((data[3]*256+data[2]));
-	  acc[2] = (int16_t) ((data[5]*256+data[4]));
-	  }
-	else if (outputType == OUTPUT_FLOAT)
-						{
-						float * fdata = Data;
-						fdata[0] = ( (int16_t) ((data[1]*256+data[0])))*GAINX;
-						fdata[1] = ( (int16_t) ((data[3]*256+data[2])))*GAINY;
-						fdata[2] = ( (int16_t) ((data[5]*256+data[4])))*GAINZ;
-						
-						}
-	}
+/**
+ * @brief Read accelerometer data in all 3 axis
+ * @param[out] Data	pointer to buffer that stores the 3 axis acceleration value
+ */
+void ADXL_getAccelRaw(void *Data)
+{
+    uint8_t data[9] = {};
+    readRegister(XDATA3, data, 9);
+
+	int32_t *acc = Data;
+
+	// Two's Complement 20-bit conversion
+	acc[0] = (int32_t)((data[0] << 12) | (data[1] << 4) | (data[2] >> 4));
+	acc[1] = (int32_t)((data[3] << 12) | (data[4] << 4) | (data[5] >> 4));
+	acc[2] = (int32_t)((data[6] << 12) | (data[7] << 4) | (data[8] >> 4));
+
+	// Sign extension for 20-bit values
+	if (acc[0] & 0x80000) acc[0] |= 0xFFF00000;
+	if (acc[1] & 0x80000) acc[1] |= 0xFFF00000;
+	if (acc[2] & 0x80000) acc[2] |= 0xFFF00000;
+}
+
+/**
+ * @brief Read accelerometer data and convert it to float
+ * @param pData Pointer to buffer that stores acceleration value
+ */
+void ADXL_getAccelFloat(void *pData) {
+	int32_t rawdata[3] = {};
+	float *dataout = pData;
+	ADXL_getAccelRaw(rawdata);
+
+	//Convert raw data to float
+	dataout[0] = (float)rawdata[0] * GAINX;
+	dataout[1] = (float)rawdata[1] * GAINY;
+	dataout[2] = (float)rawdata[2] * GAINZ;
+}
 	
 	
 /** Starts Measure Mode
