@@ -58,7 +58,7 @@ uint32_t TxMailbox;
 
 ADXL_InitTypeDef ADXL;
 adxlStatus adxlSts;
-int16_t accelData[3];
+int32_t accelData[3];
 float accelData_g[3];
 static float xOut_g;
 static float yOut_g;
@@ -132,10 +132,11 @@ int main(void)
 	  Error_Handler();
   }
 
-  ADXL.TempMode = TEMP_OFF;
-  ADXL.DrdyMode = DRDY_ON;
-  ADXL.IntMode = INT_ACTIVELOW;
-  ADXL.Range = RANGE_2G;
+  ADXL.StandbyMode = ADXL_MODE_MEASUREMENT;
+  ADXL.TempMode = ADXL_TEMP_OFF;
+  ADXL.DataReadyMode = ADXL_DRDY_ON;
+  ADXL.IntMode = ADXL_INT_ACTIVELOW;
+  ADXL.Range = ADXL_RANGE_2G;
 
   TxHeader.StdId = 0x123;
   TxHeader.DLC = 8;
@@ -153,12 +154,7 @@ int main(void)
   TxData[7] = 0x08;
 
 
-
-//  if (ADXL_Init(&ADXL)!= ADXL_OK){
-//	  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
-//	  Error_Handler();
-//  }
-  ADXL_Init(&ADXL);
+  if (ADXL_Init(&ADXL) != ADXL_OK) Error_Handler();
 //  ADXL_Measure(ON);
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
@@ -173,23 +169,19 @@ int main(void)
   while (1)
   {
 //	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-
-	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
-
-	  knobRotation_P = Knob_Rotation_Percent()*100;
+//	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+//	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
+//	  knobRotation_P = Knob_Rotation_Percent()*100;
 
 	  //180 deg -> CCR = 125, 0 deg -> CCR = 25
 //	  htim2.Instance->CCR1 = knobRotation_P + 25;
 
 
 	  ADXL_getAccelRaw(accelData);
+	  ADXL_getAccelFloat(accelData_g);
 
-	  xOut_g = accelData[0]/255.0*9.8;
-	  yOut_g = accelData[1]/255.0*9.8;
-	  zOut_g = accelData[2]/255.0*9.8;
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	  HAL_Delay(500);
+	  HAL_Delay(50);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
