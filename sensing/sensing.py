@@ -49,7 +49,6 @@ class Sensing():
             min_h = np.min(height)
             ave_h = (max_h + min_h)/2
             if ave_h >= 1/3*image_height and ave_h <= 2/3*image_height:
-                print()
                 area = cv2.contourArea(contours[i])
                 if area > max_area:
                     max_area = area
@@ -227,7 +226,6 @@ class Sensing():
         #Using similarity of the laser dot to a circle to find the center point
         for contour in sorted_contours:
             (x, y), radius = cv2.minEnclosingCircle(contour)
-            print(cv2.contourArea(contour))
             if cv2.arcLength(contour, True) == 0 or cv2.contourArea(contour) < 500 and self.laser_color == "red":
                 continue
             elif cv2.arcLength(contour, True) == 0 or cv2.contourArea(contour) < 500 and self.laser_color == "green":
