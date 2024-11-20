@@ -1,13 +1,23 @@
 #Due to unstable functionality of finding the edge of target board use this for aid
 
 import cv2
-
+import time
 #video_path = 'D:/capstone/capstone/sensing/test_video/test.mp4'
 cap = cv2.VideoCapture(0)
 #image_path = 'D:/capstone/test21.jpg'
 #img = cv2.imread(image_path)
-cap.set(3, 1080)
-cap.set(4, 720)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+cap.set(cv2.CAP_PROP_FPS,60)
+cap.set(cv2.CAP_PROP_BRIGHTNESS,120)
+cap.set(cv2.CAP_PROP_CONTRAST,35)
+cap.set(cv2.CAP_PROP_SATURATION,40)
+cap.set(cv2.CAP_PROP_HUE,-600)
+cap.set(cv2.CAP_PROP_GAMMA,160)
+cap.set(cv2.CAP_PROP_AUTOFOCUS,0)
+cap.set(cv2.CAP_PROP_FOCUS,255)
+cap.set(cv2.CAP_PROP_AUTO_WB,0)
+cap.set(cv2.CAP_PROP_WB_TEMPERATURE,4600)
 ret, img = cap.read()
 cap.release()
 new_width = int(img.shape[1] * 0.5)
