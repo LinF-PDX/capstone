@@ -115,6 +115,7 @@ int main(void)
   MX_CAN1_Init();
   MX_TIM2_Init();
   MX_ADC1_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
   CAN_Config();
@@ -145,10 +146,11 @@ int main(void)
   TxData[7] = 0x08;
 
 
-  if (ADXL_Init(&ADXL) != ADXL_OK) Error_Handler();
+  ADXL_Init(&ADXL);
 //  ADXL_Measure(ON);
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 
 
 
@@ -166,13 +168,14 @@ int main(void)
 
 	  //180 deg -> CCR = 125, 0 deg -> CCR = 25
 //	  htim2.Instance->CCR1 = knobRotation_P + 25;
+	  htim3.Instance->CCR1 = 800;
 
-
-	  ADXL_getAccelRaw(accelData);
-	  ADXL_getAccelFloat(accelData_g);
+//	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+//	  ADXL_getAccelRaw(accelData);
+//	  ADXL_getAccelFloat(accelData_g);
 
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	  HAL_Delay(50);
+	  HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
