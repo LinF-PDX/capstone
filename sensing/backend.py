@@ -1,5 +1,8 @@
 import cv2
 import numpy as np
+import os
+import can
+import struct
 
 def timer(func):
     def func_wrapper(*args, **kwargs):
@@ -11,6 +14,30 @@ def timer(func):
         return result
     return func_wrapper
 
+def can_init():
+    os.system('sudo ip link set can0 type can bitrate 500000')
+    os.system('sudo ifconfig can0 up')
+    can0 = can.interface.Bus(channel='can0', interface='socketcan')
+    os.system('sudo ip link set can1 type can bitrate 100000')
+    os.system('sudo ifconfig can1 up')
+    can1 = can.interface.Bus(channel='can1', interface='socketcan')
+    return can0, can1
+
+
+def can_send(data,can0):
+    data_send = struct.pack('<d', data)
+    msg = can.Message(is_extended_id=False, arbitration_id=0x123, data=data_send)
+    can0.send(msg)
+
+def can_receive(can1):
+    msg = can1.recv(10.0)  # receive(time out)
+    #print(msg)
+    if msg is None:
+        return None, None
+        #print('Timeout, no msg')
+    else:
+        data= struct.unpack('<dd', msg)
+        return data[0],data[1]
 
 class Sensing():
     def __init__(self,ActualBoardWidth=20,laser_color="green",gpu=0):
@@ -258,23 +285,6 @@ class Sensing():
         else:
             dis_off = (target_x - target_cross)/board_x*self.ActualBoardWidth
             return dis_off
-    
-    def start_sensing(self): #final api for use (not functional now)
-        while self.on == 1:
-            ret , frame = self.cap.read()
-            if not ret:
-                print("Camera Connect Failed")
-                break
-            
-            dis_off = self.off_dis(frame)
-            #self.communication(dis_off)
-            #dis_off send to controller
-            
-            #if condition met for close the machine
-            #self.on = 0
-            
-        self.cal.release()
-        cv2.destroyAllWindows()
         
     def camera_setup(self):
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.S_Resolution[0])

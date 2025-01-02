@@ -1,14 +1,12 @@
-from backend import Sensing
+from backend import Sensing, can_send, can_init,can_receive
 import cv2
 import multiprocessing as mp
 import time
 from datetime import datetime
 import os
 import csv
-#from can_send import cansend
-#from can_recv import canrecv
-#import PRi.GPIO as GPIO #sudo pip install --upgrade RPi.GPIO on raspberry pi
-#pin = 17
+import RPi.GPIO as GPIO
+pin = 17
 S_Enable = False
 Comm_Process = None
 Sens_Process = None
@@ -50,37 +48,39 @@ def sense_dot(conn):
     dis.cap.release()
     cv2.destroyAllWindows()
 
-def communication(conn):
+def communication(conn,can0,can1):
     if not os.path.exists("data"):
         os.makedirs("data")
     now = datetime.now()
-    path = "data/"+str(now.year)+"_"+str(now.month)+"_"+str(now.day)+"_"+str(now.hour)+"_"+str(now.minute)+"_"+str(now.second)+".csv"
+    path = "data/" + str(now.year) + "_" + str(now.month) + "_" + str(now.day) + "_" + str(now.hour) + "_" + str(now.minute) + "_" + str(now.second) + ".csv"
     with open(path, mode="w", newline="") as file:
-            writer = csv.writer(file)
-            writer.writerow(["Travel_Distance", "Height_Difference"])
+        writer = csv.writer(file)
+        writer.writerow(["Travel_Distance", "Height_Difference"])
     buffer = []
     while not stop.is_set():
         if conn.poll():
             data = conn.recv()
-            #cansend(data)
-        #Travel_Distance, Height_Difference = canrecv()
-        Travel_Distance = 0
-        Height_Difference = 0
-        buffer.append([Travel_Distance,Height_Difference])
-        if len(buffer) >= BUFFER_SIZE:
-            with open(path, mode="a", newline="") as file:
-                writer = csv.writer(file)
-                writer.writerows(buffer)
-            buffer.clear()
-            #Send_To_GUI(csv)
-        if float(Travel_Distance)>=100.0:
-            stop.set()
+            can_send(data,can0)
+        Travel_Distance, Height_Difference = can_receive(can1)
+        if Travel_Distance == None and Height_Difference == None:
+            pass
+        else:
+            buffer.append([Travel_Distance, Height_Difference])
+            if len(buffer) >= BUFFER_SIZE:
+                with open(path, mode="a", newline="") as file:
+                    writer = csv.writer(file)
+                    writer.writerows(buffer)
+                buffer.clear()
+                # Send_To_GUI(csv)
+            if float(Travel_Distance) >= 100.0:
+                stop.set()
     if len(buffer) > 0:
         with open(path, mode="a", newline="") as file:
             writer = csv.writer(file)
-            writer.writerows(buffer)        
+            writer.writerows(buffer)
 
 def button_callback(channel):
+    global S_Enable, Comm_Process, Sens_Process
     ### INITIALIZE A LED to demonstate the profilograph is Running Or Not
     if S_Enable == True:
         stop.set()
@@ -92,23 +92,24 @@ def button_callback(channel):
     else:
         stop.clear()
         conn1, conn2 = mp.Pipe()
+        can0, can1 = can_init()
         Sens_Process = mp.Process(target=sense_dot, args=(conn1,))
-        Comm_Process = mp.Process(target=communication, args=(conn2,))
+        Comm_Process = mp.Process(target=communication, args=(conn2,can0,can1,))
         Sens_Process.start()
         Comm_Process.start()
         S_Enable = True
 
 if __name__ == "__main__":
-    #GPIO.setmode(GPIO.BCM)
-    #GPIO.setup(pin,GPIO.IN,pull_up_down=GPIO.PUD_UP)
-    #GPIO.add_event_detect(pin,GPIO.RISING,callback=button_callback, bouncetime=200)
-    #connected=Connect_To_GUI()
-    
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(pin,GPIO.IN,pull_up_down=GPIO.PUD_UP)
+    GPIO.add_event_detect(pin,GPIO.RISING,callback=button_callback, bouncetime=200)
+    # connected=Connect_To_GUI()
+
     ### When add GUI add LED to demonstrate the internet connection status
-    #if connected == True:
+    # if connected == True:
     #    print("GUI_CTRL_MODE")
     #    LED = ON
-    #else:
+    # else:
     #    print("LOCAL_CTRL_MODE")
     #    LED = OFF
     try:
@@ -117,5 +118,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
     finally:
-        #GPIO.cleanup()
+        GPIO.cleanup()
         pass
