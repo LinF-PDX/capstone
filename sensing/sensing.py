@@ -43,7 +43,7 @@ def sense_dot(conn):
             print("Error detecting the cross")
         else:
             print(dis_off)
-            conn.send()
+            conn.send(dis_off)
 
     dis.cap.release()
     cv2.destroyAllWindows()
