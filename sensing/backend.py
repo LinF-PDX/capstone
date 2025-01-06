@@ -149,7 +149,7 @@ class Sensing():
         ver_l = []
         lslope = []
         height, width = image.shape[:2]
-        cv2.imshow('before_pt', canny)
+        #cv2.imshow('before_pt', canny)
         #find slope of lines to find vertical line
         if lines is not None:
             for line in lines:
@@ -279,7 +279,7 @@ class Sensing():
         if target_cross == "error":
             return "error"
         target_x = self.find_circle(img)
-        cv2.imshow('Camera', img)
+        #cv2.imshow('Camera', img)
         if target_x == 0:
             return "No Circle Detected"
         else:

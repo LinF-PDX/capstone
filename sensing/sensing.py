@@ -41,12 +41,13 @@ def sense_dot(conn):
         dis_off = dis.off_dis(frame)
         if dis_off == "error":
             print("Error detecting the cross")
+            conn.send(0)
         else:
             print(dis_off)
             conn.send(dis_off)
 
     dis.cap.release()
-    cv2.destroyAllWindows()
+    #cv2.destroyAllWindows()
 
 def communication(conn,can0,can1):
     if not os.path.exists("data"):
@@ -80,15 +81,22 @@ def communication(conn,can0,can1):
             writer.writerows(buffer)
 
 def button_callback(channel):
-    global S_Enable, Comm_Process, Sens_Process
+    global S_Enable, Comm_Process, Sens_Process, stop
     ### INITIALIZE A LED to demonstate the profilograph is Running Or Not
     if S_Enable == True:
         stop.set()
         if Sens_Process.is_alive():
-            Sens_Process.join()
+            Sens_Process.join(timeout=5)
+            if Sens_Process.is_alive():
+                Sens_Process.terminate()
         if Comm_Process.is_alive():
-            Comm_Process.join()
+            Comm_Process.join(timeout=5)
+            if Comm_Process.is_alive():
+                Comm_Process.terminate()
+        Sens_Process = None
+        Comm_Process = None
         S_Enable = False
+        print("Closed")
     else:
         stop.clear()
         conn1, conn2 = mp.Pipe()
@@ -97,12 +105,17 @@ def button_callback(channel):
         Comm_Process = mp.Process(target=communication, args=(conn2,can0,can1,))
         Sens_Process.start()
         Comm_Process.start()
+        sens_pid = Sens_Process.pid
+        comm_pid = Comm_Process.pid
+        os.sched_setaffinity(sens_pid,set([0,1,2]))
+        os.sched_setaffinity(comm_pid,set([3]))
         S_Enable = True
-
+        print("Open")
 if __name__ == "__main__":
+    print("POWER ON")
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(pin,GPIO.IN,pull_up_down=GPIO.PUD_UP)
-    GPIO.add_event_detect(pin,GPIO.RISING,callback=button_callback, bouncetime=200)
+    GPIO.add_event_detect(pin,GPIO.RISING,callback=button_callback, bouncetime=400)
     # connected=Connect_To_GUI()
 
     ### When add GUI add LED to demonstrate the internet connection status
