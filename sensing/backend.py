@@ -241,7 +241,7 @@ class Sensing():
         image = self.adjust_lightness(image)
         return image, board_x
 
-    def find_circle(self,image): #Find the center of circle/eclipse/half circle created by red laser
+    def find_circle(self,image): #Find the center of circle/eclipse/half circle created by green laser
         #image processing to find the laser dot clearly
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         if self.laser_color == "red":
