@@ -1,11 +1,16 @@
-from backend import Sensing, can_send, can_init,can_receive
+from backend import Sensing, can_send, can_init,can_receive, add_parser_arguments
 import cv2
+import logging
+import argparse
 import multiprocessing as mp
 import time
 from datetime import datetime
 import os
 import csv
 import RPi.GPIO as GPIO
+import logging
+
+
 pin = 17
 S_Enable = False
 Comm_Process = None
@@ -13,6 +18,11 @@ Sens_Process = None
 Total_Travel = 100 #100m
 BUFFER_SIZE = 10
 stop = mp.Event()
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+parser = argparse.ArgumentParser()
+add_parser_arguments(parser)
+args = parser.parse_args()
 
 def Connect_To_GUI():
     pass
@@ -20,11 +30,11 @@ def Connect_To_GUI():
 def Send_To_GUI():
     pass
 
-def sense_dot(conn):
-    dis = Sensing()
+def sense_dot(conn,args):
+    dis = Sensing(ActualBoardWidth=args.actualboardwidth,laser_color=args.lasercolor,gpu=args.gpu)
     dis.camera_setup()
     if not dis.cap.isOpened():
-        print("Error: Could not open video file.")
+        logger.error("Error: Could not open video file.")
         exit()
     
     while not stop.is_set():
@@ -40,16 +50,16 @@ def sense_dot(conn):
         
         dis_off = dis.off_dis(frame)
         if dis_off == "error":
-            print("Error detecting the cross")
+            logger.error("Error detecting the cross")
             conn.send(0)
         else:
-            print(dis_off)
+            logger.info("Distance off the track is "+str(dis_off)+" cm")
             conn.send(dis_off)
 
     dis.cap.release()
     #cv2.destroyAllWindows()
 
-def communication(conn,can0,can1):
+def communication(conn,can0,can1,args):
     if not os.path.exists("data"):
         os.makedirs("data")
     now = datetime.now()
@@ -81,7 +91,7 @@ def communication(conn,can0,can1):
             writer.writerows(buffer)
 
 def button_callback(channel):
-    global S_Enable, Comm_Process, Sens_Process, stop
+    global S_Enable, Comm_Process, Sens_Process, stop, args
     ### INITIALIZE A LED to demonstate the profilograph is Running Or Not
     if S_Enable == True:
         stop.set()
@@ -96,13 +106,13 @@ def button_callback(channel):
         Sens_Process = None
         Comm_Process = None
         S_Enable = False
-        print("Closed")
-    else:
+        logger.info("Closed")
+    else: 
         stop.clear()
         conn1, conn2 = mp.Pipe()
         can0, can1 = can_init()
-        Sens_Process = mp.Process(target=sense_dot, args=(conn1,))
-        Comm_Process = mp.Process(target=communication, args=(conn2,can0,can1,))
+        Sens_Process = mp.Process(target=sense_dot, args=(conn1,args,))
+        Comm_Process = mp.Process(target=communication, args=(conn2,can0,can1,args,))
         Sens_Process.start()
         Comm_Process.start()
         sens_pid = Sens_Process.pid
@@ -110,14 +120,17 @@ def button_callback(channel):
         os.sched_setaffinity(sens_pid,set([0,1,2]))
         os.sched_setaffinity(comm_pid,set([3]))
         S_Enable = True
-        print("Open")
+        logger.info("Open")
+        
+
+
 if __name__ == "__main__":
-    print("POWER ON")
+    logger.info("POWER ON")
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(pin,GPIO.IN,pull_up_down=GPIO.PUD_UP)
     GPIO.add_event_detect(pin,GPIO.RISING,callback=button_callback, bouncetime=400)
     # connected=Connect_To_GUI()
-
+    
     ### When add GUI add LED to demonstrate the internet connection status
     # if connected == True:
     #    print("GUI_CTRL_MODE")
@@ -133,3 +146,6 @@ if __name__ == "__main__":
     finally:
         GPIO.cleanup()
         pass
+
+#sample script
+#python sensing.py --surveydistance 100.0 --wheelbase 1300 --heightthreashold 10.0 --actualboardwidth 13.6 --lasercolor green --gpu 0

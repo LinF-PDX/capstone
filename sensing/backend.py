@@ -4,6 +4,20 @@ import os
 import can
 import struct
 
+def add_parser_arguments(parser):
+    parser.add_argument("--surveydistance", type=float, default=100.0,
+        help="S_surveyDistance")
+    parser.add_argument("--wheelbase", type=int, default=1300,
+        help="S_wheelBase")
+    parser.add_argument("--heightthreashold", type=float, default=10.0,
+        help="S_heightThreashold")
+    parser.add_argument("--actualboardwidth", type=float, default=13.6,
+        help="Actual Width of laser board in cm")
+    parser.add_argument("--lasercolor", type=str, default="green",
+        help="Color of laser gun used for tracking")
+    parser.add_argument("--gpu", type=bool, default=0,
+        help="Enable GPU for Opencv (Not Available Now)")
+
 def timer(func):
     def func_wrapper(*args, **kwargs):
         from time import time
@@ -31,7 +45,6 @@ def can_send(data,can0):
 
 def can_receive(can1):
     msg = can1.recv(10.0)  # receive(time out)
-    #print(msg)
     if msg is None:
         return None, None
         #print('Timeout, no msg')
@@ -40,14 +53,14 @@ def can_receive(can1):
         return data[0],data[1]
 
 class Sensing():
-    def __init__(self,ActualBoardWidth=20,laser_color="green",gpu=0):
+    def __init__(self,ActualBoardWidth=13.6,laser_color="green",gpu=0):
         self.cap = cv2.VideoCapture(0)
         self.ActualBoardWidth = ActualBoardWidth #width of target board
         self.laser_color = laser_color
         self.S_Resolution = [1080,720]
         self.gpu = gpu
         self.cross = []
-        self.roi = np.array([[288,38],[143,33],[126,296],[289,297]])
+        self.roi = np.array([[297,33],[333,278],[25,292],[62,32]])
         #      b,a,d,c
         #      a------b
         #      |      |
@@ -111,12 +124,19 @@ class Sensing():
             cv2.circle(image, (int(self.cross[0]),int(self.cross[1])), 2, (0, 0, 255), -1)
             return self.cross[0]
         else:
-            cross = cv2.minAreaRect(combine[0])
-            center = (int(cross[0][0]), int(cross[0][1]))
-            cv2.circle(image, center, 2, (0, 0, 255), -1)
+            for square in combine:
+                cross = cv2.minAreaRect(square)
+                if cross[0][0] >= 1/3*image_width and cross[0][0] <= 2/3*image_width:
+                    if cross[0][1] >= 1/3*image_height and cross[0][1] <= 2/3*image_height:
+                        center = (int(cross[0][0]), int(cross[0][1]))
+                        cv2.circle(image, center, 2, (0, 0, 255), -1)
+                        if self.cross == []:
+                            self.cross = [cross[0][0], cross[0][1]]
+                        return cross[0][0]
             if self.cross == []:
-                self.cross = [cross[0][0], cross[0][1]]
-            return cross[0][0]
+                return "error"
+            cv2.circle(image, (int(self.cross[0]),int(self.cross[1])), 2, (0, 0, 255), -1)
+            return self.cross[0]
         
     def adjust_lightness(self,image):
         b,g,r = cv2.split(image)
@@ -143,51 +163,51 @@ class Sensing():
         kernel = np.ones((7, 7), np.uint8)
         opening = cv2.morphologyEx(blur, cv2.MORPH_CLOSE, kernel)
         canny = cv2.Canny(opening, 35, 150)
-        rectangle = np.array(0)
+        #rectangle = np.array(0)
+        rectangle = self.roi
         #Find all the lines in the photo
-        lines = cv2.HoughLinesP(canny,1,1*np.pi/180, threshold = 60, minLineLength = 200, maxLineGap = 45)
-        ver_l = []
-        lslope = []
-        height, width = image.shape[:2]
-        #cv2.imshow('before_pt', canny)
+        # lines = cv2.HoughLinesP(canny,1,1*np.pi/180, threshold = 60, minLineLength = 200, maxLineGap = 45)
+        # ver_l = []
+        # lslope = []
+        # height, width = image.shape[:2]
         #find slope of lines to find vertical line
-        if lines is not None:
-            for line in lines:
-                x1, y1, x2, y2 = line[0]
-                if (x2 - x1) != 0:
-                    slope = (y2 - y1) / (x2 - x1)
-                else:
-                    slope = np.inf
-                if abs(slope) > 0.8:
-                    ver_l.append((x1, y1, x2, y2))
-                    lslope.append(slope)
+        # if lines is not None:
+        #     for line in lines:
+        #         x1, y1, x2, y2 = line[0]
+        #         if (x2 - x1) != 0:
+        #             slope = (y2 - y1) / (x2 - x1)
+        #         else:
+        #             slope = np.inf
+        #         if abs(slope) > 0.8:
+        #             ver_l.append((x1, y1, x2, y2))
+        #             lslope.append(slope)
 
-        if len(ver_l) != 2:
-            rectangle=self.roi
-        else:
-            intersect = []
-        #calculate the cross points of vertical line and edge of image
-            for line, slope in zip(ver_l, lslope):
-                x1, y1, x2, y2 = line
-                if slope != np.inf:
-                    intercept = y1 - slope * x1
-                else:
-                    intercept = 0
-                y_top = 0
-                y_bottom = height - 1
-                if slope != np.inf:
-                    x_top = (y_top - intercept) / slope
-                    intersect.append((int(x_top), int(y_top)))
-                    x_bottom = (y_bottom - intercept) / slope
-                    intersect.append((int(x_bottom), int(y_bottom)))
-                else:
-                    intersect.append((int(x1), int(y_top)))
-                    intersect.append((int(x1), int(y_bottom)))
-            rectangle=np.array(intersect).reshape(4,2)
-            if abs(np.min(rectangle[rectangle[:, 1] > np.mean(rectangle[:, 1])]) - np.max(rectangle[rectangle[:, 1] < np.mean(rectangle[:, 1])])) < 200: #If the distance between two side is too small.
-                rectangle=self.roi
-            else:
-                self.roi = rectangle
+        # if len(ver_l) != 2:
+        #     rectangle=self.roi
+        # else:
+        #     intersect = []
+        # #calculate the cross points of vertical line and edge of image
+        #     for line, slope in zip(ver_l, lslope):
+        #         x1, y1, x2, y2 = line
+        #         if slope != np.inf:
+        #             intercept = y1 - slope * x1
+        #         else:
+        #             intercept = 0
+        #         y_top = 0
+        #         y_bottom = height - 1
+        #         if slope != np.inf:
+        #             x_top = (y_top - intercept) / slope
+        #             intersect.append((int(x_top), int(y_top)))
+        #             x_bottom = (y_bottom - intercept) / slope
+        #             intersect.append((int(x_bottom), int(y_bottom)))
+        #         else:
+        #             intersect.append((int(x1), int(y_top)))
+        #             intersect.append((int(x1), int(y_bottom)))
+        #     rectangle=np.array(intersect).reshape(4,2)
+        #     if abs(np.min(rectangle[rectangle[:, 1] > np.mean(rectangle[:, 1])]) - np.max(rectangle[rectangle[:, 1] < np.mean(rectangle[:, 1])])) < 200: #If the distance between two side is too small.
+        #         rectangle=self.roi
+        #     else:
+        #        self.roi = rectangle
         #Using four dots as the corner of target board
         board_x = 0
         x_mean = np.mean(rectangle[:, 0])
@@ -232,7 +252,6 @@ class Sensing():
             #high = np.array([90, 80, 255])
             low = np.array([40, 20, 210])
             high = np.array([90, 80, 210])
-            
         else:
             pass
         kernel = np.ones((5,5),np.uint8)
@@ -248,7 +267,6 @@ class Sensing():
         else:
             _ , sorted_contours = zip(*sorted(zip(areas, contours), key=lambda x: x[0], reverse=True))
         mask = np.zeros_like(mask)
-        
         target_x = 0
         #Using similarity of the laser dot to a circle to find the center point
         for contour in sorted_contours:
@@ -259,12 +277,12 @@ class Sensing():
                 continue
             else:
                 circularity = (4 * np.pi * cv2.contourArea(contour)) / (cv2.arcLength(contour, True) ** 2)
-            if circularity >= 0.7:
+            if circularity >= 0.75:
                 cv2.drawContours(mask, [contour], -1, (255), thickness=cv2.FILLED)
                 cv2.circle(image, (int(x), int(y)), 2, (0, 0, 255), -1)
                 target_x = x
                 break
-            elif 0.4 < circularity < 0.7 and (np.any(contour[:, 0, 1] == 0) or np.any(contour[:, 0 ,1] == image.shape[0]-1) or (np.any(contour[:,0,0] == 0) or np.any(contour[:,0,0] == image.shape[1]-1))):
+            elif 0.55 < circularity < 0.75 and (np.any(contour[:, 0, 1] == 0) or np.any(contour[:, 0 ,1] == image.shape[0]-1) or (np.any(contour[:,0,0] == 0) or np.any(contour[:,0,0] == image.shape[1]-1))):
                  # circle in the corner
                     cv2.drawContours(mask, [contour], -1, (255), thickness=cv2.FILLED)
                     cv2.circle(image, (int(x), int(y)), 2, (0, 0, 255), -1)
@@ -316,8 +334,8 @@ class Sensing():
             new_width = int(frame.shape[1] * 0.5)
             new_height = int(frame.shape[0] * 0.5)
             frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
-            
             dis_off = self.off_dis(frame)
+            
             if dis_off == "error":
                 print("Error detecting the cross")
             else:
@@ -329,6 +347,10 @@ class Sensing():
         self.cap.release()
         cv2.destroyAllWindows()
     
-#if __name__ == "__main__":
-#    dis = Sensing()
-#    dis.test()
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser()
+#     add_parser_arguments(parser)
+#     args = parser.parse_args()
+#     dis = Sensing(ActualBoardWidth=args.actualboardwidth,laser_color=args.lasercolor,gpu=args.gpu)
+#     dis.test()
+    #python backend.py --surveydistance 100.0 --wheelbase 1300 --heightthreashold 10.0 --actualboardwidth 13.6 --lasercolor green --gpu 0
