@@ -1,9 +1,8 @@
 import cv2
 import numpy as np
 import os
-#import can
+import can
 import struct
-import argparse
 
 def add_parser_arguments(parser):
     parser.add_argument("--surveydistance", type=float, default=100.0,
@@ -288,9 +287,6 @@ class Sensing():
                     cv2.drawContours(mask, [contour], -1, (255), thickness=cv2.FILLED)
                     cv2.circle(image, (int(x), int(y)), 2, (0, 0, 255), -1)
                     target_x = x
-                    print(circularity)
-                    cv2.imshow("iamge", blur)
-                    cv2.waitKey(0)
                     break
         return target_x
     
@@ -351,10 +347,10 @@ class Sensing():
         self.cap.release()
         cv2.destroyAllWindows()
     
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    add_parser_arguments(parser)
-    args = parser.parse_args()
-    dis = Sensing(ActualBoardWidth=args.actualboardwidth,laser_color=args.lasercolor,gpu=args.gpu)
-    dis.test()
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser()
+#     add_parser_arguments(parser)
+#     args = parser.parse_args()
+#     dis = Sensing(ActualBoardWidth=args.actualboardwidth,laser_color=args.lasercolor,gpu=args.gpu)
+#     dis.test()
     #python backend.py --surveydistance 100.0 --wheelbase 1300 --heightthreashold 10.0 --actualboardwidth 13.6 --lasercolor green --gpu 0
