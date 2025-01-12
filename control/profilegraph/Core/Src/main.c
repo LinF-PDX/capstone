@@ -36,7 +36,13 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define DIS_OFF_MAX_LEFT (-67)
+#define DIS_OFF_MAX_RIGHT (67)
+#define STEERING_ANGLE_MAX_LEFT (-20.0f)
+#define STEERING_ANGLE_MAX_RIGHT (20.0f)
+#define SERVO_CCR_AT_CENTER 752
+#define SERVO_CCR_AT_NEG20  678
+#define SERVO_CCR_AT_POS20  830
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -61,12 +67,14 @@ float accelData_g[3];
 uint8_t dirction = 0;
 uint8_t knobRotation_P = 0;
 uint8_t deviceAddr = 0;
+int8_t dis_off = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 static void CAN_Config(void);
+void Steering_Servo_Control(int8_t offsetVal);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -116,6 +124,7 @@ int main(void)
   MX_TIM2_Init();
   MX_ADC1_Init();
   MX_TIM3_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 
   CAN_Config();
@@ -152,8 +161,7 @@ int main(void)
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 
-
-
+  htim2.Instance->CCR1 = 750;
 
   /* USER CODE END 2 */
 
@@ -161,21 +169,45 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  Steering_Servo_Control(dis_off);
 //	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 //	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
 //	  knobRotation_P = Knob_Rotation_Percent()*100;
 
 	  //180 deg -> CCR = 125, 0 deg -> CCR = 25
-//	  htim2.Instance->CCR1 = knobRotation_P + 25;
-	  htim3.Instance->CCR1 = 800;
+//	  htim2.Instance->CCR1 = SERVO_CCR_AT_NEG20;
+//	  HAL_Delay(500);
+//	  htim2.Instance->CCR1 = SERVO_CCR_AT_CENTER;
+//	  HAL_Delay(500);
+//	  htim2.Instance->CCR1 = SERVO_CCR_AT_POS20;
+//	  HAL_Delay(500);
+//	  htim2.Instance->CCR1 = SERVO_CCR_AT_CENTER;
+//	  HAL_Delay(500);
+//	  htim2.Instance->CCR1 = 1000;
+//	  HAL_Delay(2000);
+//	  htim2.Instance->CCR1 = 1250;
+//	  if (dirction == 0){
+//	 		  for (int i = 250; i < 1250; i+=10){
+//	 			  htim2.Instance->CCR1 = i;
+//	 			  HAL_Delay(5);
+//	 		  }
+//	 		  dirction = 1;
+//	 	  } else {
+//	 		  for (int i = 1250; i > 250; i-=10){
+//	 			  htim2.Instance->CCR1 = i;
+//	 			  HAL_Delay(5);
+//	 		  }
+//	 		  dirction = 0;
+//	 	  }
+//	  htim3.Instance->CCR1 = 800;
 
 //	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 //	  ADXL_getAccelRaw(accelData);
 //	  ADXL_getAccelFloat(accelData_g);
 
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	  HAL_Delay(500);
+//	  HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -260,13 +292,36 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 		Error_Handler();
 	}
 
-	if (RxHeader.StdId == 0x234) {
+	if (RxHeader.StdId == 0x100) {
 		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+		dis_off = RxData[0];
 	}
 
 }
 
+void Steering_Servo_Control(int8_t offsetVal){
+	//Clamp dis_off to valid range
+	if (offsetVal < DIS_OFF_MAX_LEFT) {
+		offsetVal = DIS_OFF_MAX_LEFT;
+	} else if (offsetVal >= DIS_OFF_MAX_RIGHT) {
+		offsetVal = DIS_OFF_MAX_RIGHT;
+	}
 
+	//Linear interpolation from dis_off to steering angle
+    float steerAngle = STEERING_ANGLE_MAX_LEFT
+        + ( (float)(offsetVal - DIS_OFF_MAX_LEFT)
+            / (float)(DIS_OFF_MAX_RIGHT - DIS_OFF_MAX_LEFT) )
+          * ( STEERING_ANGLE_MAX_RIGHT - STEERING_ANGLE_MAX_LEFT );
+
+    //Linear interpolation from steering angle to ccr value
+    float ccrValue = SERVO_CCR_AT_NEG20
+        + ( (steerAngle - STEERING_ANGLE_MAX_LEFT)
+            / (STEERING_ANGLE_MAX_RIGHT - STEERING_ANGLE_MAX_LEFT) )
+          * (SERVO_CCR_AT_POS20 - SERVO_CCR_AT_NEG20);
+
+    //Write to the timer’s CCR register (cast to uint16_t)
+    htim2.Instance->CCR1 = (uint16_t) ccrValue;
+}
 
 /* USER CODE END 4 */
 
