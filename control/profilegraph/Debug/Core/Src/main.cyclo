@@ -3,5 +3,5 @@
 ../Core/Src/main.c:222:6:SystemClock_Config	3
 ../Core/Src/main.c:260:13:CAN_Config	3
 ../Core/Src/main.c:287:6:HAL_CAN_RxFifo0MsgPendingCallback	3
-../Core/Src/main.c:302:6:Steering_Servo_Control	3
-../Core/Src/main.c:332:6:Error_Handler	1
+../Core/Src/main.c:302:6:Steering_Servo_Control	4
+../Core/Src/main.c:334:6:Error_Handler	1

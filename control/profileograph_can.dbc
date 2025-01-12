@@ -36,7 +36,7 @@ BS_:
 BU_: STM32 Pi
 
 
-BO_ 256 sensing_broadcast: 8 Vector__XXX
+BO_ 291 sensing_broadcast: 1 Vector__XXX
  SG_ dis_off : 0|8@1- (1,0) [-128|127] "mm" Vector__XXX
 
 BO_ 258 control_setParam: 8 Vector__XXX

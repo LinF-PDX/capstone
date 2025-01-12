@@ -292,7 +292,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 		Error_Handler();
 	}
 
-	if (RxHeader.StdId == 0x100) {
+	if (RxHeader.StdId == 0x123) {
 		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 		dis_off = RxData[0];
 	}
@@ -301,26 +301,28 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 
 void Steering_Servo_Control(int8_t offsetVal){
 	//Clamp dis_off to valid range
-	if (offsetVal < DIS_OFF_MAX_LEFT) {
-		offsetVal = DIS_OFF_MAX_LEFT;
-	} else if (offsetVal >= DIS_OFF_MAX_RIGHT) {
-		offsetVal = DIS_OFF_MAX_RIGHT;
+	if (offsetVal != 100){
+		if (offsetVal < DIS_OFF_MAX_LEFT) {
+			offsetVal = DIS_OFF_MAX_LEFT;
+		} else if (offsetVal >= DIS_OFF_MAX_RIGHT) {
+			offsetVal = DIS_OFF_MAX_RIGHT;
+		}
+
+		//Linear interpolation from dis_off to steering angle
+		float steerAngle = STEERING_ANGLE_MAX_LEFT
+			+ ( (float)(offsetVal - DIS_OFF_MAX_LEFT)
+				/ (float)(DIS_OFF_MAX_RIGHT - DIS_OFF_MAX_LEFT) )
+			  * ( STEERING_ANGLE_MAX_RIGHT - STEERING_ANGLE_MAX_LEFT );
+
+		//Linear interpolation from steering angle to ccr value
+		float ccrValue = SERVO_CCR_AT_NEG20
+			+ ( (steerAngle - STEERING_ANGLE_MAX_LEFT)
+				/ (STEERING_ANGLE_MAX_RIGHT - STEERING_ANGLE_MAX_LEFT) )
+			  * (SERVO_CCR_AT_POS20 - SERVO_CCR_AT_NEG20);
+
+		//Write to the timer’s CCR register (cast to uint16_t)
+		htim2.Instance->CCR1 = (uint16_t) ccrValue;
 	}
-
-	//Linear interpolation from dis_off to steering angle
-    float steerAngle = STEERING_ANGLE_MAX_LEFT
-        + ( (float)(offsetVal - DIS_OFF_MAX_LEFT)
-            / (float)(DIS_OFF_MAX_RIGHT - DIS_OFF_MAX_LEFT) )
-          * ( STEERING_ANGLE_MAX_RIGHT - STEERING_ANGLE_MAX_LEFT );
-
-    //Linear interpolation from steering angle to ccr value
-    float ccrValue = SERVO_CCR_AT_NEG20
-        + ( (steerAngle - STEERING_ANGLE_MAX_LEFT)
-            / (STEERING_ANGLE_MAX_RIGHT - STEERING_ANGLE_MAX_LEFT) )
-          * (SERVO_CCR_AT_POS20 - SERVO_CCR_AT_NEG20);
-
-    //Write to the timer’s CCR register (cast to uint16_t)
-    htim2.Instance->CCR1 = (uint16_t) ccrValue;
 }
 
 /* USER CODE END 4 */
