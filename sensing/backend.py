@@ -39,18 +39,37 @@ def can_init():
 
 
 def can_send(data,can0):
-    data_send = struct.pack('<d', data)
+    data_send = struct.pack('<b', data)
     msg = can.Message(is_extended_id=False, arbitration_id=0x123, data=data_send)
     can0.send(msg)
 
 def can_receive(can1):
-    msg = can1.recv(10.0)  # receive(time out)
+    msg = can1.recv(0.01)  # receive(time out)
     if msg is None:
         return None, None
         #print('Timeout, no msg')
     else:
         data= struct.unpack('<dd', msg)
         return data[0],data[1]
+
+def can_initvalue(args,can0):
+    S_surveydistance = args.surveydistance
+    S_wheelbase = args.wheelbase
+    S_heightthreashold = args.heightthreashold
+    data_tuple=(S_surveydistance,S_wheelbase,S_heightthreashold)
+    data_init=struct.pack('<BHb',data_tuple)
+    msg=can.Message(is_extended_id = False, arbitration_id=0x102,data=data_init)
+    can0.send(msg)
+
+def can_start():
+
+
+
+
+def can_down():
+    os.system('sudo ifconfig can0 down')
+    os.system('sudo ifconfig can1 down')
+
 
 class Sensing():
     def __init__(self,ActualBoardWidth=13.6,laser_color="green",gpu=0):
@@ -60,7 +79,8 @@ class Sensing():
         self.S_Resolution = [1080,720]
         self.gpu = gpu
         self.cross = []
-        self.roi = np.array([[297,33],[333,278],[25,292],[62,32]])
+        self.roi = np.array([[485,76],[174,83],[151,357],[517,355]])
+         
         #      b,a,d,c
         #      a------b
         #      |      |
@@ -299,7 +319,7 @@ class Sensing():
         target_x = self.find_circle(img)
         #cv2.imshow('Camera', img)
         if target_x == 0:
-            return "No Circle Detected"
+            return 100
         else:
             dis_off = (target_x - target_cross)/board_x*self.ActualBoardWidth
             return dis_off

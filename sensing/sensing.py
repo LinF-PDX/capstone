@@ -8,10 +8,9 @@ from datetime import datetime
 import os
 import csv
 import RPi.GPIO as GPIO
-import logging
 
 
-pin = 17
+pin = 27
 S_Enable = False
 Comm_Process = None
 Sens_Process = None
@@ -51,9 +50,9 @@ def sense_dot(conn,args):
         dis_off = dis.off_dis(frame)
         if dis_off == "error":
             logger.error("Error detecting the cross")
-            conn.send(0)
+            conn.send(10.0)
         else:
-            logger.info("Distance off the track is "+str(dis_off)+" cm")
+            logger.info("Distance off the track is "+str(dis_off)+" mm")
             conn.send(dis_off)
 
     dis.cap.release()
@@ -71,7 +70,7 @@ def communication(conn,can0,can1,args):
     while not stop.is_set():
         if conn.poll():
             data = conn.recv()
-            can_send(data,can0)
+            can_send(int(data),can0)
         Travel_Distance, Height_Difference = can_receive(can1)
         if Travel_Distance == None and Height_Difference == None:
             pass
