@@ -1,6 +1,9 @@
 # Created by https://www.toptal.com/developers/gitignore/api/latex,macos,matlab,python
 # Edit at https://www.toptal.com/developers/gitignore?templates=latex,macos,matlab,python
 
+### Folders ###
+sensing/data/
+
 ### LaTeX ###
 ## Core latex/pdflatex auxiliary files:
 *.aux
