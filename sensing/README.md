@@ -37,5 +37,4 @@
 ### Aid
    ```bash
     python3 find_color_corner.py
-
    After running this script, clicking four corner of laser board captured to locate the board. Value will be used in backend.py variable roi.
