@@ -52,19 +52,14 @@ def can_receive(can1):
         data= struct.unpack('<dd', msg)
         return data[0],data[1]
 
-def can_initvalue(args,can0):
+def can_initvalue(args,S_Enable,can0):
     S_surveydistance = args.surveydistance
     S_wheelbase = args.wheelbase
     S_heightthreashold = args.heightthreashold
-    data_tuple=(S_surveydistance,S_wheelbase,S_heightthreashold)
-    data_init=struct.pack('<BHb',data_tuple)
+    data_tuple=(S_surveydistance,S_wheelbase,S_heightthreashold,S_Enable)
+    data_init=struct.pack('<BHb?',data_tuple)
     msg=can.Message(is_extended_id = False, arbitration_id=0x102,data=data_init)
     can0.send(msg)
-
-def can_start():
-
-
-
 
 def can_down():
     os.system('sudo ifconfig can0 down')

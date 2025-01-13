@@ -1,4 +1,4 @@
-from backend import Sensing, can_send, can_init,can_receive, add_parser_arguments
+from backend import Sensing, can_send, can_init,can_receive, add_parser_arguments, can_initvalue, can_down
 import cv2
 import logging
 import argparse
@@ -104,12 +104,15 @@ def button_callback(channel):
                 Comm_Process.terminate()
         Sens_Process = None
         Comm_Process = None
+        can_down()
         S_Enable = False
         logger.info("Closed")
     else: 
         stop.clear()
         conn1, conn2 = mp.Pipe()
         can0, can1 = can_init()
+        S_Enable = True
+        can_initvalue(args,S_Enable,can0)
         Sens_Process = mp.Process(target=sense_dot, args=(conn1,args,))
         Comm_Process = mp.Process(target=communication, args=(conn2,can0,can1,args,))
         Sens_Process.start()
@@ -118,7 +121,7 @@ def button_callback(channel):
         comm_pid = Comm_Process.pid
         os.sched_setaffinity(sens_pid,set([0,1,2]))
         os.sched_setaffinity(comm_pid,set([3]))
-        S_Enable = True
+       # S_Enable = True
         logger.info("Open")
         
 
