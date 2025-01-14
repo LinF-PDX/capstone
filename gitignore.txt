@@ -3,6 +3,7 @@
 
 ### Folders ###
 sensing/data/
+sensing/__pycache__/
 
 ### LaTeX ###
 ## Core latex/pdflatex auxiliary files:
