@@ -16,6 +16,7 @@
    git clone https://github.com/LinF-PDX/capstone
    cd capstone/sensing
    pip install -r requirements.txt
+   mkdir data
 2. Setup CAN-HAT follow instruction in:
    https://www.waveshare.com/wiki/2-CH_CAN_HAT#Specifications
 ## Usage and Examples
