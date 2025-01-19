@@ -68,10 +68,10 @@ def can_down():
 
 class Sensing():
     def __init__(self,ActualBoardWidth=13.6,laser_color="green",gpu=0):
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(0,cv2.CAP_DSHOW)
         self.ActualBoardWidth = ActualBoardWidth #width of target board
         self.laser_color = laser_color
-        self.S_Resolution = [1080,720]
+        self.S_Resolution = [640,480]
         self.gpu = gpu
         self.cross = []
         self.roi = np.array([[485,76],[174,83],[151,357],[517,355]])
@@ -323,15 +323,17 @@ class Sensing():
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.S_Resolution[0])
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.S_Resolution[1])
         self.cap.set(cv2.CAP_PROP_FPS,60)
-        self.cap.set(cv2.CAP_PROP_BRIGHTNESS,120)
+        self.cap.set(cv2.CAP_PROP_BRIGHTNESS,136)
         self.cap.set(cv2.CAP_PROP_CONTRAST,35)
         self.cap.set(cv2.CAP_PROP_SATURATION,40)
         self.cap.set(cv2.CAP_PROP_HUE,-600)
-        self.cap.set(cv2.CAP_PROP_GAMMA,160)
+        self.cap.set(cv2.CAP_PROP_GAMMA,140)
         self.cap.set(cv2.CAP_PROP_AUTOFOCUS,0)
         self.cap.set(cv2.CAP_PROP_FOCUS,255)
-        self.cap.set(cv2.CAP_PROP_AUTO_WB,0)
-        self.cap.set(cv2.CAP_PROP_WB_TEMPERATURE,4600)
+        self.cap.set(cv2.CAP_PROP_AUTO_WB,3)
+        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE,1)
+        self.cap.release()
+        self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         
     def test(self):
         self.camera_setup()
@@ -341,14 +343,13 @@ class Sensing():
         
         while self.cap.isOpened():
             ret, frame = self.cap.read()
-        
             if not ret:
                 break
             
             # Display the frame
-            new_width = int(frame.shape[1] * 0.5)
-            new_height = int(frame.shape[0] * 0.5)
-            frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+            #new_width = int(frame.shape[1] * 0.5)
+            #new_height = int(frame.shape[0] * 0.5)
+            #frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
             dis_off = self.off_dis(frame)
             
             if dis_off == "error":
@@ -363,6 +364,7 @@ class Sensing():
         cv2.destroyAllWindows()
     
 # if __name__ == "__main__":
+#     import argparse
 #     parser = argparse.ArgumentParser()
 #     add_parser_arguments(parser)
 #     args = parser.parse_args()

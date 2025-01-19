@@ -43,9 +43,9 @@ def sense_dot(conn,args):
             break
         
         # Display the frame
-        new_width = int(frame.shape[1] * 0.5)
-        new_height = int(frame.shape[0] * 0.5)
-        frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+        #new_width = int(frame.shape[1])
+        #new_height = int(frame.shape[0])
+        #frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
         
         dis_off = dis.off_dis(frame)
         if dis_off == "error":
