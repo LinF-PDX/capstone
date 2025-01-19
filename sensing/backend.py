@@ -68,7 +68,7 @@ def can_down():
 
 class Sensing():
     def __init__(self,ActualBoardWidth=13.6,laser_color="green",gpu=0):
-        self.cap = cv2.VideoCapture(0,cv2.CAP_DSHOW)
+        self.cap = None
         self.ActualBoardWidth = ActualBoardWidth #width of target board
         self.laser_color = laser_color
         self.S_Resolution = [640,480]
@@ -320,23 +320,27 @@ class Sensing():
             return dis_off
         
     def camera_setup(self):
+        self.cap = cv2.VideoCapture(0)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.S_Resolution[0])
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.S_Resolution[1])
-        self.cap.set(cv2.CAP_PROP_FPS,60)
-        self.cap.set(cv2.CAP_PROP_BRIGHTNESS,136)
-        self.cap.set(cv2.CAP_PROP_CONTRAST,35)
-        self.cap.set(cv2.CAP_PROP_SATURATION,40)
-        self.cap.set(cv2.CAP_PROP_HUE,-600)
-        self.cap.set(cv2.CAP_PROP_GAMMA,140)
-        self.cap.set(cv2.CAP_PROP_AUTOFOCUS,0)
-        self.cap.set(cv2.CAP_PROP_FOCUS,255)
-        self.cap.set(cv2.CAP_PROP_AUTO_WB,3)
-        self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE,1)
-        self.cap.release()
-        self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        # self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        # self.cap.set(cv2.CAP_PROP_FPS,60)
+        # self.cap.set(cv2.CAP_PROP_BRIGHTNESS,136)
+        # self.cap.set(cv2.CAP_PROP_CONTRAST,35)
+        # self.cap.set(cv2.CAP_PROP_SATURATION,40)
+        # self.cap.set(cv2.CAP_PROP_HUE,-600)
+        # self.cap.set(cv2.CAP_PROP_GAMMA,140)
+        # self.cap.set(cv2.CAP_PROP_AUTOFOCUS,0)
+        # self.cap.set(cv2.CAP_PROP_FOCUS,255)
+        # self.cap.set(cv2.CAP_PROP_AUTO_WB,3)
+        # self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE,1)
+        # self.cap.release()
+        # self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         
     def test(self):
+        import time
         self.camera_setup()
+        time.sleep(5)
         if not self.cap.isOpened():
             print("Error: Could not open video file.")
             exit()

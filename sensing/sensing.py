@@ -32,6 +32,7 @@ def Send_To_GUI():
 def sense_dot(conn,args):
     dis = Sensing(ActualBoardWidth=args.actualboardwidth,laser_color=args.lasercolor,gpu=args.gpu)
     dis.camera_setup()
+    time.sleep(5)
     if not dis.cap.isOpened():
         logger.error("Error: Could not open video file.")
         exit()
