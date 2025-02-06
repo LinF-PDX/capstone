@@ -1,5 +1,4 @@
 from backend import Sensing, can_send, can_init,can_receive, add_parser_arguments, can_initvalue, can_down
-import cv2
 import logging
 import argparse
 import multiprocessing as mp
@@ -8,6 +7,7 @@ from datetime import datetime
 import os
 import csv
 import RPi.GPIO as GPIO
+import numpy as np
 
 
 pin = 27
@@ -37,17 +37,12 @@ def sense_dot(conn,args):
         logger.error("Error: Could not open video file.")
         exit()
     
+    frame = np.empty((480,640,3),dtype=np.uint8)
     while not stop.is_set():
-        ret, frame = dis.cap.read()
-    
+        starttime = time.time()
+        ret, _ = dis.cap.read(frame)
         if not ret:
             break
-        
-        # Display the frame
-        #new_width = int(frame.shape[1])
-        #new_height = int(frame.shape[0])
-        #frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
-        
         dis_off = dis.off_dis(frame)
         if dis_off == "error":
             logger.error("Error detecting the cross")
@@ -55,10 +50,10 @@ def sense_dot(conn,args):
         else:
             logger.info("Distance off the track is "+str(dis_off)+" mm")
             conn.send(dis_off)
+        time.sleep(max(0,1/60-(time.time()-starttime)))
 
     dis.cap.release()
-    #cv2.destroyAllWindows()
-
+    
 def communication(conn,can0,can1,args):
     if not os.path.exists("data"):
         os.makedirs("data")
@@ -152,3 +147,4 @@ if __name__ == "__main__":
 
 #sample script
 #python sensing.py --surveydistance 100.0 --wheelbase 1300 --heightthreashold 10.0 --actualboardwidth 13.6 --lasercolor green --gpu 0
+
