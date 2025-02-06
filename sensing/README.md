@@ -8,7 +8,7 @@
 
 ### Requirements
 - OpenCV >= 4.10.0
-- Python 3.11.2
+- 3.11 >= Python >= 3.9
 
 ### Method: From Source
 1. Clone the repository:
