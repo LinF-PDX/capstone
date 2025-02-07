@@ -67,7 +67,7 @@ def communication(conn,can0,can1,args):
         if conn.poll():
             data = conn.recv()
             can_send(int(data),can0)
-        Travel_Distance, Height_Difference = can_receive(can1)
+        Travel_Distance, Height_Difference = can_receive(can0)
         if Travel_Distance == None and Height_Difference == None:
             pass
         else:
