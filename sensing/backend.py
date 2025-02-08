@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import os
-import can
+#import can
 import struct
 
 def add_parser_arguments(parser):
@@ -209,12 +209,15 @@ class Sensing():
     def detect_laser_blob(self, image):
         params = cv2.SimpleBlobDetector_Params()
         params.filterByArea = True
-        params.minArea = 80 
-        params.maxArea = 5000
-        params.minThreshold = 160
-        params.maxThreshold = 240 
-        params.thresholdStep = 10
-        params.minRepeatability = 2
+        params.minArea = 100
+        params.maxArea = 50000
+        #params.minThreshold = 120
+        #params.maxThreshold = 240 
+        #params.thresholdStep = 10
+        params.minThreshold = 200
+        params.maxThreshold = 250 
+        params.thresholdStep = 5
+        params.minRepeatability = 4
         params.filterByColor = False 
         params.filterByInertia = True
         params.minInertiaRatio = 0.1
@@ -227,7 +230,7 @@ class Sensing():
         if keypoints:
             blob = max(keypoints, key=lambda k: k.size)
             target_x, target_y = blob.pt
-            #cv2.circle(image, (int(target_x), int(target_y)), 2, (0, 0, 255), -1)
+            #cv2.circle(image, (int(target_x), int(target_y)), 2, (255, 0, 0), -1)
             return target_x, target_y
         else:
             return target_x, target_y
@@ -268,7 +271,7 @@ class Sensing():
             #center = ellipse[0]
             area = cv2.contourArea(contour)
             arclength = cv2.arcLength(contour, True)
-            if cv2.arcLength(contour, True) == 0 or area < 100 or area > 5000:
+            if cv2.arcLength(contour, True) == 0 or area < 100 or area > 50000:
                 continue
             (x, y), radius = cv2.minEnclosingCircle(contour)
             circularity = (4 * np.pi * area) / (arclength ** 2)
@@ -302,7 +305,7 @@ class Sensing():
             return target_x_blob
         else:
             distance = np.sqrt((target_x_blob - target_x_color)**2 + (target_y_blob - target_y_color)**2)
-            if distance < 10:
+            if distance < 15:
                 return target_x_color
             else:
                 value=self.detect_laser_cnn(image)
@@ -322,7 +325,8 @@ class Sensing():
             return dis_off
         
     def camera_setup(self):
-        self.cap = cv2.VideoCapture(0)
+        #self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        self.cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.S_Resolution[0])
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.S_Resolution[1])
         self.cap.set(cv2.CAP_PROP_FPS,60)
@@ -337,7 +341,52 @@ class Sensing():
         self.cap.set(cv2.CAP_PROP_WHITE_BALANCE_BLUE_U, 4700)
         self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE,1)
         self.cap.release()
-        self.cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+        #self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    
+    def local_test(self):
+        
+        folder_name = ["photo_1paper",
+                       "photo_2paper",
+                       "photo_3paper",
+                       "photo_4paper",
+                       "photo_5paper",
+                       "photo_1paper1board",
+                        "photo_2paper1board",
+                        "photo_3paper1board",
+                        "photo_1papaer_close",
+                        "photo_2papaer_close",
+                        "photo_3papaer_close",
+                        "photo_4papaer_close",
+                        "photo_5papaer_close",
+                       "photo_1papaer1board_close",
+                       "photo_2paper1board_close",
+                       "photo_3paper1board_close",
+                       "photo_4paper1board_close",
+                       "photo_2paper_mid",
+                       "photo_3paper_mid",
+                       "photo_4paper_mid",
+                       "photo_5paper_mid",
+                       "photo_7paper_mid",
+                       "photo_2paper1board_mid",
+                       "photo_3paper1board_mid",
+                       "photo_4paper1board_mid"]
+        while (1):
+            error = 0
+            for i in range(0,len(folder_name)):
+                while(error < 90):
+                    frame = cv2.imread(folder_name[i]+'/image_'+str(error)+'.jpg')
+                    print(folder_name[i]+"/image_"+str(error)+".jpg")
+                    if frame is None:
+                        print(f"Error: Cannot load image")
+                        error+=1
+                    else:
+                        error+=1
+                        frame, board_x=self.pt(frame)
+                        target_x = self.find_circle(frame)
+                        cv2.imshow('Camera', frame)
+                        cv2.waitKey(0)
+                error = 0
     
     def test(self):
         self.camera_setup()
@@ -366,5 +415,5 @@ class Sensing():
 #     add_parser_arguments(parser)
 #     args = parser.parse_args()
 #     dis = Sensing(ActualBoardWidth=args.actualboardwidth,laser_color=args.lasercolor,gpu=args.gpu)
-#     dis.test()
+#     dis.local_test()
     #python backend.py --surveydistance 100.0 --wheelbase 1300 --heightthreashold 10.0 --actualboardwidth 13.6 --lasercolor green --gpu 0

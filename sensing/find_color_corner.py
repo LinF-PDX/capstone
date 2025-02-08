@@ -50,16 +50,33 @@ def get_img():
     return img
 def load_img():
     #image_path = 'D:/capstone/capstone/sensing/error/image_300.jpg'
-    image_path = 'D:/capstone/capstone/sensing/whiteyellow-wb-far/test53.jpg'
+    image_path = 'D:/capstone/capstone/sensing/photo_4papaer1board_close/image_11.jpg'
     img = cv2.imread(image_path)
     return img
 
 sensing = Sensing()
 img = load_img()
-image , _ = sensing.pt(img)
+img , _ = sensing.pt(img)
 
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+# cv2.namedWindow("Threshold")
+
+def on_trackbar(img):
+    minThreshold = cv2.getTrackbarPos("Min Threshold", "Threshold")
+    maxThreshold = cv2.getTrackbarPos("Max Threshold", "Threshold")
+    green_channel = img[:, :, 1]
+    _, binary = cv2.threshold(green_channel, minThreshold, maxThreshold, cv2.THRESH_BINARY)
+    cv2.imshow("Threshold", binary)
+cv2.createTrackbar("Min Threshold", "Threshold", 100, 255, on_trackbar)
+cv2.createTrackbar("Max Threshold", "Threshold", 200, 255, on_trackbar)
+
+# while True:
+#     on_trackbar(img)
+#     if cv2.waitKey(1) & 0xFF == ord('q'):
+#         break
+
 
 points = []
 
