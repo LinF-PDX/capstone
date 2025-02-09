@@ -1,5 +1,4 @@
-from backend import Sensing, can_send, can_init,can_receive, add_parser_arguments, can_initvalue, can_down
-import cv2
+from backend import Sensing, can_send, can_init,can_receive, add_parser_arguments, can_initvalue, can_down, restart_program
 import logging
 import argparse
 import multiprocessing as mp
@@ -8,6 +7,7 @@ from datetime import datetime
 import os
 import csv
 import RPi.GPIO as GPIO
+import numpy as np
 
 
 pin = 27
@@ -17,11 +17,20 @@ Sens_Process = None
 Total_Travel = 100 #100m
 BUFFER_SIZE = 10
 stop = mp.Event()
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 parser = argparse.ArgumentParser()
 add_parser_arguments(parser)
 args = parser.parse_args()
+
+#检查args的输入值，输入范围正确
+assert 0 <= args.surveydistance <= 255, "surveydistance must be between 0m and 255m"
+assert 0 <= args.wheelbase <= 2000, "wheelbase must be between 0mm and 2000mm"
+assert 0 <= args.heightthreashold <= 255, "heightthreashold must be between 0 mm and 50mm"
+assert 0.0 <= args.actualboardwidth <= 255.0, "actualboardwidth must be between 0.0 cm and 255 cm"
+assert args.lasercolor == "green", "only green laser is supported now"
+assert args.gpu == 0, "Implementation Error, GPU feature not available"
 
 def Connect_To_GUI():
     pass
@@ -30,35 +39,41 @@ def Send_To_GUI():
     pass
 
 def sense_dot(conn,args):
-    dis = Sensing(ActualBoardWidth=args.actualboardwidth,laser_color=args.lasercolor,gpu=args.gpu)
-    dis.camera_setup()
+    try:
+        dis = Sensing(ActualBoardWidth=args.actualboardwidth,laser_color=args.lasercolor,gpu=args.gpu)
+    except Exception as e:
+        logger.exception("Failed to create Sensing")
+        return
+    try:
+        dis.camera_setup()
+    except Exception as e:
+        logger.exception("Error Setup camera")
     time.sleep(5)
     if not dis.cap.isOpened():
         logger.error("Error: Could not open video file.")
-        exit()
+        exit(1)
     
+    width, height = dis.S_Resolution
+    frame = np.empty((height, width, 3), dtype=np.uint8)
     while not stop.is_set():
-        ret, frame = dis.cap.read()
-    
-        if not ret:
+        try:
+            starttime = time.time()
+            ret, _ = dis.cap.read(frame)
+            if not ret:
+                break
+            dis_off = dis.off_dis(frame)
+            if dis_off == "error":
+                logger.error("Error detecting the cross")
+                conn.send(10.0)
+            else:
+                logger.info("Distance off the track is "+str(dis_off)+" mm")
+                conn.send(dis_off)
+            time.sleep(max(0,1/60-(time.time()-starttime)))
+        except Exception as e:
+            logger.exception(f"Error: {e}")
             break
-        
-        # Display the frame
-        #new_width = int(frame.shape[1])
-        #new_height = int(frame.shape[0])
-        #frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
-        
-        dis_off = dis.off_dis(frame)
-        if dis_off == "error":
-            logger.error("Error detecting the cross")
-            conn.send(10.0)
-        else:
-            logger.info("Distance off the track is "+str(dis_off)+" mm")
-            conn.send(dis_off)
-
     dis.cap.release()
-    #cv2.destroyAllWindows()
-
+    
 def communication(conn,can0,can1,args):
     if not os.path.exists("data"):
         os.makedirs("data")
@@ -72,8 +87,8 @@ def communication(conn,can0,can1,args):
         if conn.poll():
             data = conn.recv()
             can_send(int(data),can0)
-        Travel_Distance, Height_Difference = can_receive(can1)
-        if Travel_Distance == None and Height_Difference == None:
+        Travel_Distance, Height_Difference = can_receive(can0)
+        if Travel_Distance == None or Height_Difference == None:
             pass
         else:
             buffer.append([Travel_Distance, Height_Difference])
@@ -99,10 +114,12 @@ def button_callback(channel):
             Sens_Process.join(timeout=5)
             if Sens_Process.is_alive():
                 Sens_Process.terminate()
+                Sens_Process.join()
         if Comm_Process.is_alive():
             Comm_Process.join(timeout=5)
             if Comm_Process.is_alive():
                 Comm_Process.terminate()
+                Comm_Process.join()
         Sens_Process = None
         Comm_Process = None
         can_down()
@@ -110,8 +127,13 @@ def button_callback(channel):
         logger.info("Closed")
     else: 
         stop.clear()
-        conn1, conn2 = mp.Pipe()
+        try:
+            conn1, conn2 = mp.Pipe()
+        except (OSError, ValueError) as e:
+            restart_program()
         can0, can1 = can_init()
+        if can0 == None or can1 == None:
+            restart_program()
         S_Enable = True
         can_initvalue(args,S_Enable,can0)
         Sens_Process = mp.Process(target=sense_dot, args=(conn1,args,))
@@ -120,8 +142,13 @@ def button_callback(channel):
         Comm_Process.start()
         sens_pid = Sens_Process.pid
         comm_pid = Comm_Process.pid
-        os.sched_setaffinity(sens_pid,set([0,1,2]))
-        os.sched_setaffinity(comm_pid,set([3]))
+        try:
+            os.sched_setaffinity(sens_pid,set([0,1,2]))
+            os.sched_setaffinity(comm_pid,set([3]))
+        except PermissionError as e:
+            logger.error(f"Permission Error Setting CPU Affinity")
+        except OSError as e:
+            logger.error(f"Error setting CPU affinity")
        # S_Enable = True
         logger.info("Open")
         
@@ -129,9 +156,13 @@ def button_callback(channel):
 
 if __name__ == "__main__":
     logger.info("POWER ON")
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(pin,GPIO.IN,pull_up_down=GPIO.PUD_UP)
-    GPIO.add_event_detect(pin,GPIO.RISING,callback=button_callback, bouncetime=400)
+    try:
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(pin,GPIO.IN,pull_up_down=GPIO.PUD_UP)
+        GPIO.add_event_detect(pin,GPIO.RISING,callback=button_callback, bouncetime=400)
+    except Exception as e:
+        logger.error("GPIO Initialization Error: "+str(e))
+        exit(1)
     # connected=Connect_To_GUI()
     
     ### When add GUI add LED to demonstrate the internet connection status
@@ -145,10 +176,9 @@ if __name__ == "__main__":
         while True:
             time.sleep(0.1)
     except KeyboardInterrupt:
-        pass
+        exit(0)
     finally:
         GPIO.cleanup()
-        pass
-
 #sample script
 #python sensing.py --surveydistance 100.0 --wheelbase 1300 --heightthreashold 10.0 --actualboardwidth 13.6 --lasercolor green --gpu 0
+
