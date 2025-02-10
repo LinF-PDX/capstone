@@ -99,7 +99,7 @@ def communication(conn,can0,can1,args):
                     writer.writerows(buffer)
                 buffer.clear()
                 # Send_To_GUI(csv)
-            if float(Travel_Distance) >= 100.0:
+            if float(Travel_Distance) >= args.surveydistance:
                 stop.set()
     if len(buffer) > 0:
         with open(path, mode="a", newline="") as file:

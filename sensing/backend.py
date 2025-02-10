@@ -430,13 +430,12 @@ class Sensing():
         target_x = self.find_circle(img)
         #cv2.imshow('Camera', img)
         if target_x == "error":
-            return 100
+            return "error"
         else:
             dis_off = (target_x - target_cross)/board_x*self.ActualBoardWidth
             return dis_off
         
     def camera_setup(self):
-        #self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         avabilable_backend = None
         backends = {
             'linux': cv2.CAP_V4L2,
