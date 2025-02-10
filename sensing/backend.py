@@ -7,6 +7,7 @@ import logging
 from can.exceptions import CanError, CanInitializationError, CanOperationError, CanTimeoutError
 import sys
 import subprocess
+
 logger = logging.getLogger("sensing")
 
 def restart_program():
@@ -25,7 +26,7 @@ def add_parser_arguments(parser):
         help="Actual Width of laser board in cm (0cm - 255cm)")
     parser.add_argument("--lasercolor", type=str, default="green",choices=["red", "green"],
         help="Color of laser gun used for tracking (red, green)")
-    parser.add_argument("--gpu", type=bool, default=0,
+    parser.add_argument("--gpu", type=int, default=0,
         help="Enable GPU for Opencv (0: Disabled, 1: Enabled)")
 
 def timer(func):
@@ -341,7 +342,7 @@ class Sensing():
         
     def detect_laser_color(self,image): #Find the center of circle/eclipse/half circle created by green laser
         if image is None or not isinstance(image, np.ndarray):
-            logger.error("detect_laser_blob Invalid Input ")
+            logger.error("detect_laser_color Invalid Input ")
             return "error", "error"
         #image processing to find the laser dot clearly
         try:
@@ -418,7 +419,7 @@ class Sensing():
             else:
                 value=self.detect_laser_cnn(image)
                 return "error"
-    @timer
+
     def off_dis(self,img): #calculate the distance between laser dot and center cross
         img, board_x=self.pt(img)
         if board_x == 0 or board_x == "error":
@@ -429,14 +430,12 @@ class Sensing():
         target_x = self.find_circle(img)
         #cv2.imshow('Camera', img)
         if target_x == "error":
-            return 100
+            return "error"
         else:
             dis_off = (target_x - target_cross)/board_x*self.ActualBoardWidth
-            dis_off = target_x
             return dis_off
         
     def camera_setup(self):
-        #self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         avabilable_backend = None
         backends = {
             'linux': cv2.CAP_V4L2,
@@ -535,11 +534,11 @@ class Sensing():
         self.cap.release()
         cv2.destroyAllWindows()
     
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    add_parser_arguments(parser)
-    args = parser.parse_args()
-    dis = Sensing(ActualBoardWidth=args.actualboardwidth,laser_color=args.lasercolor,gpu=args.gpu)
-    dis.local_test()
+# if __name__ == "__main__":
+#     import argparse
+#     parser = argparse.ArgumentParser()
+#     add_parser_arguments(parser)
+#     args = parser.parse_args()
+#     dis = Sensing(ActualBoardWidth=args.actualboardwidth,laser_color=args.lasercolor,gpu=args.gpu)
+#     dis.local_test()
     #python backend.py --surveydistance 100 --wheelbase 1300 --heightthreashold 10 --actualboardwidth 13.6 --lasercolor green --gpu 0

@@ -9,7 +9,6 @@ import csv
 import RPi.GPIO as GPIO
 import numpy as np
 
-
 pin = 27
 S_Enable = False
 Comm_Process = None
@@ -20,17 +19,19 @@ stop = mp.Event()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-parser = argparse.ArgumentParser()
-add_parser_arguments(parser)
-args = parser.parse_args()
 
-#检查args的输入值，输入范围正确
-assert 0 <= args.surveydistance <= 255, "surveydistance must be between 0m and 255m"
-assert 0 <= args.wheelbase <= 2000, "wheelbase must be between 0mm and 2000mm"
-assert 0 <= args.heightthreashold <= 255, "heightthreashold must be between 0 mm and 50mm"
-assert 0.0 <= args.actualboardwidth <= 255.0, "actualboardwidth must be between 0.0 cm and 255 cm"
-assert args.lasercolor == "green", "only green laser is supported now"
-assert args.gpu == 0, "Implementation Error, GPU feature not available"
+def parse_args():
+    parser = argparse.ArgumentParser()
+    add_parser_arguments(parser)
+    return parser.parse_args()
+
+def check_args(args):
+    assert 0 <= args.surveydistance <= 255, "surveydistance must be between 0m and 255m"
+    assert 0 <= args.wheelbase <= 2000, "wheelbase must be between 0mm and 2000mm"
+    assert 0 <= args.heightthreashold <= 255, "heightthreashold must be between 0 mm and 50mm"
+    assert 0.0 <= args.actualboardwidth <= 255.0, "actualboardwidth must be between 0.0 cm and 255 cm"
+    assert args.lasercolor == "green", "only green laser is supported now"
+    assert args.gpu == 0, "Implementation Error, GPU feature not available"
 
 def Connect_To_GUI():
     pass
@@ -98,7 +99,7 @@ def communication(conn,can0,can1,args):
                     writer.writerows(buffer)
                 buffer.clear()
                 # Send_To_GUI(csv)
-            if float(Travel_Distance) >= 100.0:
+            if float(Travel_Distance) >= args.surveydistance:
                 stop.set()
     if len(buffer) > 0:
         with open(path, mode="a", newline="") as file:
@@ -156,6 +157,10 @@ def button_callback(channel):
 
 if __name__ == "__main__":
     logger.info("POWER ON")
+    
+    args = parse_args()
+    check_args(args)
+    
     try:
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(pin,GPIO.IN,pull_up_down=GPIO.PUD_UP)
@@ -180,5 +185,5 @@ if __name__ == "__main__":
     finally:
         GPIO.cleanup()
 #sample script
-#python sensing.py --surveydistance 100.0 --wheelbase 1300 --heightthreashold 10.0 --actualboardwidth 13.6 --lasercolor green --gpu 0
+#python sensing.py --surveydistance 100 --wheelbase 1300 --heightthreashold 10 --actualboardwidth 13.6 --lasercolor green --gpu 0
 
