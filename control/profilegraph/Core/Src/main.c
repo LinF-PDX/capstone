@@ -18,6 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "adc.h"
+#include "can.h"
+#include "spi.h"
+#include "tim.h"
+#include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -31,7 +36,13 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define DIS_OFF_MAX_LEFT (-67)
+#define DIS_OFF_MAX_RIGHT (67)
+#define STEERING_ANGLE_MAX_LEFT (-20.0f)
+#define STEERING_ANGLE_MAX_RIGHT (20.0f)
+#define SERVO_CCR_AT_CENTER 752
+#define SERVO_CCR_AT_NEG20  678
+#define SERVO_CCR_AT_POS20  830
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -40,13 +51,6 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-ADC_HandleTypeDef hadc1;
-
-CAN_HandleTypeDef hcan1;
-
-SPI_HandleTypeDef hspi1;
-
-TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
 CAN_TxHeaderTypeDef TxHeader;
@@ -58,25 +62,19 @@ uint32_t TxMailbox;
 
 ADXL_InitTypeDef ADXL;
 adxlStatus adxlSts;
-int16_t accelData[3];
+int32_t accelData[3];
 float accelData_g[3];
-static float xOut_g;
-static float yOut_g;
-static float zOut_g;
 uint8_t dirction = 0;
 uint8_t knobRotation_P = 0;
 uint8_t deviceAddr = 0;
+int8_t dis_off = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_SPI1_Init(void);
-static void MX_CAN1_Init(void);
-static void MX_TIM2_Init(void);
-static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 static void CAN_Config(void);
+void Steering_Servo_Control(int8_t offsetVal);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -125,6 +123,8 @@ int main(void)
   MX_CAN1_Init();
   MX_TIM2_Init();
   MX_ADC1_Init();
+  MX_TIM3_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 
   CAN_Config();
@@ -133,10 +133,11 @@ int main(void)
 	  Error_Handler();
   }
 
-  ADXL.SPIMode = SPIMODE_4WIRE;
-  ADXL.Rate = BWRATE_800;
-  ADXL.Range = RANGE_2G;
-  ADXL.Resolution = RESOLUTION_FULL;
+  ADXL.StandbyMode = ADXL_MODE_MEASUREMENT;
+  ADXL.TempMode = ADXL_TEMP_OFF;
+  ADXL.DataReadyMode = ADXL_DRDY_ON;
+  ADXL.IntMode = ADXL_INT_ACTIVELOW;
+  ADXL.Range = ADXL_RANGE_2G;
 
   TxHeader.StdId = 0x123;
   TxHeader.DLC = 8;
@@ -154,18 +155,13 @@ int main(void)
   TxData[7] = 0x08;
 
 
-
-//  if (ADXL_Init(&ADXL)!= ADXL_OK){
-//	  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
-//	  Error_Handler();
-//  }
   ADXL_Init(&ADXL);
 //  ADXL_Measure(ON);
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 
-
-
+  htim2.Instance->CCR1 = 750;
 
   /* USER CODE END 2 */
 
@@ -173,24 +169,45 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  Steering_Servo_Control(dis_off);
 //	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-
-	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
-
-	  knobRotation_P = Knob_Rotation_Percent()*100;
+//	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+//	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
+//	  knobRotation_P = Knob_Rotation_Percent()*100;
 
 	  //180 deg -> CCR = 125, 0 deg -> CCR = 25
-//	  htim2.Instance->CCR1 = knobRotation_P + 25;
+//	  htim2.Instance->CCR1 = SERVO_CCR_AT_NEG20;
+//	  HAL_Delay(500);
+//	  htim2.Instance->CCR1 = SERVO_CCR_AT_CENTER;
+//	  HAL_Delay(500);
+//	  htim2.Instance->CCR1 = SERVO_CCR_AT_POS20;
+//	  HAL_Delay(500);
+//	  htim2.Instance->CCR1 = SERVO_CCR_AT_CENTER;
+//	  HAL_Delay(500);
+//	  htim2.Instance->CCR1 = 1000;
+//	  HAL_Delay(2000);
+//	  htim2.Instance->CCR1 = 1250;
+//	  if (dirction == 0){
+//	 		  for (int i = 250; i < 1250; i+=10){
+//	 			  htim2.Instance->CCR1 = i;
+//	 			  HAL_Delay(5);
+//	 		  }
+//	 		  dirction = 1;
+//	 	  } else {
+//	 		  for (int i = 1250; i > 250; i-=10){
+//	 			  htim2.Instance->CCR1 = i;
+//	 			  HAL_Delay(5);
+//	 		  }
+//	 		  dirction = 0;
+//	 	  }
+//	  htim3.Instance->CCR1 = 800;
 
+//	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+//	  ADXL_getAccelRaw(accelData);
+//	  ADXL_getAccelFloat(accelData_g);
 
-	  ADXL_getAccel(accelData, OUTPUT_SIGNED);
-
-	  xOut_g = accelData[0]/255.0*9.8;
-	  yOut_g = accelData[1]/255.0*9.8;
-	  zOut_g = accelData[2]/255.0*9.8;
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	  HAL_Delay(500);
+//	  HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -239,225 +256,6 @@ void SystemClock_Config(void)
   }
 }
 
-/**
-  * @brief ADC1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_ADC1_Init(void)
-{
-
-  /* USER CODE BEGIN ADC1_Init 0 */
-
-  /* USER CODE END ADC1_Init 0 */
-
-  ADC_ChannelConfTypeDef sConfig = {0};
-
-  /* USER CODE BEGIN ADC1_Init 1 */
-
-  /* USER CODE END ADC1_Init 1 */
-
-  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
-  */
-  hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
-  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
-  hadc1.Init.ContinuousConvMode = DISABLE;
-  hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  if (HAL_ADC_Init(&hadc1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_10;
-  sConfig.Rank = ADC_REGULAR_RANK_1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN ADC1_Init 2 */
-
-  /* USER CODE END ADC1_Init 2 */
-
-}
-
-/**
-  * @brief CAN1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_CAN1_Init(void)
-{
-
-  /* USER CODE BEGIN CAN1_Init 0 */
-
-  /* USER CODE END CAN1_Init 0 */
-
-  /* USER CODE BEGIN CAN1_Init 1 */
-
-  /* USER CODE END CAN1_Init 1 */
-  hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 2;
-  hcan1.Init.Mode = CAN_MODE_NORMAL;
-  hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
-  hcan1.Init.TimeSeg1 = CAN_BS1_13TQ;
-  hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
-  hcan1.Init.TimeTriggeredMode = DISABLE;
-  hcan1.Init.AutoBusOff = ENABLE;
-  hcan1.Init.AutoWakeUp = DISABLE;
-  hcan1.Init.AutoRetransmission = DISABLE;
-  hcan1.Init.ReceiveFifoLocked = DISABLE;
-  hcan1.Init.TransmitFifoPriority = DISABLE;
-  if (HAL_CAN_Init(&hcan1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN CAN1_Init 2 */
-
-  /* USER CODE END CAN1_Init 2 */
-
-}
-
-/**
-  * @brief SPI1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI1_Init(void)
-{
-
-  /* USER CODE BEGIN SPI1_Init 0 */
-
-  /* USER CODE END SPI1_Init 0 */
-
-  /* USER CODE BEGIN SPI1_Init 1 */
-
-  /* USER CODE END SPI1_Init 1 */
-  /* SPI1 parameter configuration*/
-  hspi1.Instance = SPI1;
-  hspi1.Init.Mode = SPI_MODE_MASTER;
-  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_HIGH;
-  hspi1.Init.CLKPhase = SPI_PHASE_2EDGE;
-  hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
-  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi1.Init.CRCPolynomial = 7;
-  hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
-  if (HAL_SPI_Init(&hspi1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI1_Init 2 */
-
-  /* USER CODE END SPI1_Init 2 */
-
-}
-
-/**
-  * @brief TIM2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM2_Init(void)
-{
-
-  /* USER CODE BEGIN TIM2_Init 0 */
-
-  /* USER CODE END TIM2_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
-
-  /* USER CODE BEGIN TIM2_Init 1 */
-
-  /* USER CODE END TIM2_Init 1 */
-  htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 320-1;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 1000-1;
-  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM2_Init 2 */
-
-  /* USER CODE END TIM2_Init 2 */
-  HAL_TIM_MspPostInit(&htim2);
-
-}
-
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
-
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LD1_Pin|LD3_Pin|SPI1_CS_Pin|LD2_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pins : LD1_Pin LD3_Pin SPI1_CS_Pin LD2_Pin */
-  GPIO_InitStruct.Pin = LD1_Pin|LD3_Pin|SPI1_CS_Pin|LD2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
-}
-
 /* USER CODE BEGIN 4 */
 static void CAN_Config(void)
 {
@@ -494,13 +292,38 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 		Error_Handler();
 	}
 
-	if (RxHeader.StdId == 0x234) {
+	if (RxHeader.StdId == 0x123) {
 		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+		dis_off = RxData[0];
 	}
 
 }
 
+void Steering_Servo_Control(int8_t offsetVal){
+	//Clamp dis_off to valid range
+	if (offsetVal != 100){
+		if (offsetVal < DIS_OFF_MAX_LEFT) {
+			offsetVal = DIS_OFF_MAX_LEFT;
+		} else if (offsetVal >= DIS_OFF_MAX_RIGHT) {
+			offsetVal = DIS_OFF_MAX_RIGHT;
+		}
 
+		//Linear interpolation from dis_off to steering angle
+		float steerAngle = STEERING_ANGLE_MAX_LEFT
+			+ ( (float)(offsetVal - DIS_OFF_MAX_LEFT)
+				/ (float)(DIS_OFF_MAX_RIGHT - DIS_OFF_MAX_LEFT) )
+			  * ( STEERING_ANGLE_MAX_RIGHT - STEERING_ANGLE_MAX_LEFT );
+
+		//Linear interpolation from steering angle to ccr value
+		float ccrValue = SERVO_CCR_AT_NEG20
+			+ ( (steerAngle - STEERING_ANGLE_MAX_LEFT)
+				/ (STEERING_ANGLE_MAX_RIGHT - STEERING_ANGLE_MAX_LEFT) )
+			  * (SERVO_CCR_AT_POS20 - SERVO_CCR_AT_NEG20);
+
+		//Write to the timer’s CCR register (cast to uint16_t)
+		htim2.Instance->CCR1 = (uint16_t) ccrValue;
+	}
+}
 
 /* USER CODE END 4 */
 
