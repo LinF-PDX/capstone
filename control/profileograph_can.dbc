@@ -40,12 +40,14 @@ BO_ 291 sensing_broadcast: 1 Vector__XXX
  SG_ dis_off : 0|8@1- (1,0) [-128|127] "mm" Vector__XXX
 
 BO_ 258 control_setParam: 8 Vector__XXX
- SG_ S_wheelBase : 8|11@1+ (1,0) [0|2047] "mm" Vector__XXX
+ SG_ S_heightThreashold : 8|8@1+ (1,0) [0|255] "mm" Vector__XXX
+ SG_ S_startSurvey : 32|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ S_wheelBase : 16|16@1+ (1,0) [0|65535] "mm" Vector__XXX
  SG_ S_surveyDistanceSet : 0|8@1+ (1,0) [0|255] "m" Vector__XXX
 
 BO_ 257 control_broadcast: 8 STM32
- SG_ C_steeringServoPos : 32|6@1- (1,0) [-32|31] "deg" Vector__XXX
- SG_ C_transverseHeight : 16|12@1- (0.1,0) [-204.8|204.7] "mm"  Pi
+ SG_ C_steeringServoPos : 32|8@1- (1,0) [-128|127] "deg" Vector__XXX
+ SG_ C_transverseHeight : 16|16@1- (0.1,0) [-3276.8|3276.7] "mm"  Pi
  SG_ C_drivenDistance : 0|16@1+ (0.01,0) [0|655.35] "m"  Pi
 
 
