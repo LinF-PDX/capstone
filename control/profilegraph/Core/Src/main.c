@@ -43,6 +43,9 @@
 #define SERVO_CCR_AT_CENTER 752
 #define SERVO_CCR_AT_NEG20  678
 #define SERVO_CCR_AT_POS20  830
+
+#define DRIVE_MOTOR_MAX_SPEED 1000
+#define DRIVE_MOTOR_MIN_SPEED 0
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -75,6 +78,8 @@ void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 static void CAN_Config(void);
 void Steering_Servo_Control(int8_t offsetVal);
+void Drive_Motor_Control(uint16_t speed);
+void Drive_Motor_Start(float C_drivenDistance);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -161,7 +166,7 @@ int main(void)
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 
-  htim2.Instance->CCR1 = 750;
+  htim2.Instance->CCR1 = SERVO_CCR_AT_CENTER;
 
   /* USER CODE END 2 */
 
@@ -169,7 +174,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  Steering_Servo_Control(dis_off);
+	  Drive_Motor_Start(1);
+//	  Steering_Servo_Control(dis_off);
 //	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 //	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
@@ -200,7 +206,6 @@ int main(void)
 //	 		  }
 //	 		  dirction = 0;
 //	 	  }
-//	  htim3.Instance->CCR1 = 800;
 
 //	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
 //	  ADXL_getAccelRaw(accelData);
@@ -322,6 +327,28 @@ void Steering_Servo_Control(int8_t offsetVal){
 
 		//Write to the timer’s CCR register (cast to uint16_t)
 		htim2.Instance->CCR1 = (uint16_t) ccrValue;
+	}
+}
+
+void Drive_Motor_Control(uint16_t speed){
+	//Clamp input speed
+	if (speed >= DRIVE_MOTOR_MIN_SPEED && speed <= DRIVE_MOTOR_MAX_SPEED){
+		  htim3.Instance->CCR1 = speed;
+	} else {
+		  htim3.Instance->CCR1 = DRIVE_MOTOR_MIN_SPEED;
+	}
+}
+
+void Drive_Motor_Start(float C_drivenDistance){
+	static uint8_t fullSpeed = 0;
+	if (!fullSpeed) {
+		for (int speed = 100; speed < 1000; speed += 2) {
+			Drive_Motor_Control(speed);
+			HAL_Delay(1);
+		}
+		fullSpeed = 1;
+	} else {
+		Drive_Motor_Control(1000);
 	}
 }
 

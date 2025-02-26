@@ -1,7 +1,9 @@
-../Core/Src/main.c:82:7:Knob_Rotation_Percent	16	static
-../Core/Src/main.c:97:5:main	8	static
-../Core/Src/main.c:222:6:SystemClock_Config	88	static
-../Core/Src/main.c:260:13:CAN_Config	48	static
-../Core/Src/main.c:287:6:HAL_CAN_RxFifo0MsgPendingCallback	16	static
-../Core/Src/main.c:302:6:Steering_Servo_Control	24	static
-../Core/Src/main.c:334:6:Error_Handler	4	static,ignoring_inline_asm
+../Core/Src/main.c:87:7:Knob_Rotation_Percent	16	static
+../Core/Src/main.c:102:5:main	8	static
+../Core/Src/main.c:227:6:SystemClock_Config	88	static
+../Core/Src/main.c:265:13:CAN_Config	48	static
+../Core/Src/main.c:292:6:HAL_CAN_RxFifo0MsgPendingCallback	16	static
+../Core/Src/main.c:307:6:Steering_Servo_Control	24	static
+../Core/Src/main.c:333:6:Drive_Motor_Control	16	static
+../Core/Src/main.c:342:6:Drive_Motor_Start	24	static
+../Core/Src/main.c:361:6:Error_Handler	4	static,ignoring_inline_asm
