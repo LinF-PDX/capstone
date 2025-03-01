@@ -63,11 +63,17 @@ def sense_dot(conn,args):
             if not ret:
                 break
             dis_off = dis.off_dis(frame)
-            if dis_off == "error":
+            if dis_off == "error_cross":
                 logger.error("Error detecting the cross")
                 conn.send(10.0)
+            elif dis_off == "error_dot":
+                logger.error("Error detecting the dot")
+                conn.send(10.0)
+            elif dis_off == "error":
+                logger.error("Unexpected Error")
+                conn.send(10.0)
             else:
-                logger.info("Distance off the track is "+str(dis_off)+" mm")
+                logger.info("Distance off the track is "+str(dis_off)+" cm")
                 conn.send(dis_off)
             time.sleep(max(0,1/60-(time.time()-starttime)))
         except Exception as e:

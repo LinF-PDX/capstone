@@ -63,7 +63,7 @@ def can_init():
 
 def can_send(data,can0):
     try:
-        data_send = struct.pack('<b', data)
+        data_send = struct.pack('<b', data*10)
         msg = can.Message(is_extended_id=False, arbitration_id=0x123, data=data_send)
         can0.send(msg)
     except CanOperationError:
@@ -124,7 +124,7 @@ class Sensing():
         self.S_Resolution = [640,480]
         self.gpu = gpu
         self.cross = []
-        self.roi = np.array([[536,64],[98,61],[60,479],[580,479]])
+        self.roi = np.array([[525,25],[141,30],[81,459],[567,447]])
         if not isinstance(self.roi, np.ndarray):
             logger.error("roi must be an np.array")
             self.roi = np.array([[536,64],[98,61],[60,479],[580,479]])
@@ -426,11 +426,11 @@ class Sensing():
             return "error"
         target_cross = self.find_cross(img)
         if target_cross == "error":
-            return "error"
+            return "error_cross"
         target_x = self.find_circle(img)
         #cv2.imshow('Camera', img)
         if target_x == "error":
-            return "error"
+            return "error_dot"
         else:
             dis_off = (target_x - target_cross)/board_x*self.ActualBoardWidth
             return dis_off
@@ -454,15 +454,15 @@ class Sensing():
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.S_Resolution[0])
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.S_Resolution[1])
         self.cap.set(cv2.CAP_PROP_FPS,60)
-        self.cap.set(cv2.CAP_PROP_BRIGHTNESS,136)
-        self.cap.set(cv2.CAP_PROP_CONTRAST,35)
-        self.cap.set(cv2.CAP_PROP_SATURATION,40)
-        self.cap.set(cv2.CAP_PROP_HUE,-600)
-        self.cap.set(cv2.CAP_PROP_GAMMA,140)
-        self.cap.set(cv2.CAP_PROP_AUTOFOCUS,0)
-        self.cap.set(cv2.CAP_PROP_FOCUS,255)
-        self.cap.set(cv2.CAP_PROP_AUTO_WB,0)
-        self.cap.set(cv2.CAP_PROP_WHITE_BALANCE_BLUE_U, 4700)
+        self.cap.set(cv2.CAP_PROP_BRIGHTNESS,100)
+        self.cap.set(cv2.CAP_PROP_CONTRAST,128)
+        self.cap.set(cv2.CAP_PROP_SATURATION,128)
+        self.cap.set(cv2.CAP_PROP_HUE,128)
+        #self.cap.set(cv2.CAP_PROP_GAMMA,140)
+        self.cap.set(cv2.CAP_PROP_AUTOFOCUS,1)
+        #self.cap.set(cv2.CAP_PROP_FOCUS,255)
+        self.cap.set(cv2.CAP_PROP_AUTO_WB,1)
+        #self.cap.set(cv2.CAP_PROP_WHITE_BALANCE_BLUE_U, 4700)
         self.cap.set(cv2.CAP_PROP_AUTO_EXPOSURE,1)
         self.cap.release()
         self.cap = cv2.VideoCapture(0, avabilable_backend)
@@ -534,11 +534,11 @@ class Sensing():
         self.cap.release()
         cv2.destroyAllWindows()
     
-# if __name__ == "__main__":
-#     import argparse
-#     parser = argparse.ArgumentParser()
-#     add_parser_arguments(parser)
-#     args = parser.parse_args()
-#     dis = Sensing(ActualBoardWidth=args.actualboardwidth,laser_color=args.lasercolor,gpu=args.gpu)
-#     dis.local_test()
+if __name__ == "__main__":
+     import argparse
+     parser = argparse.ArgumentParser()
+     add_parser_arguments(parser)
+     args = parser.parse_args()
+     dis = Sensing(ActualBoardWidth=args.actualboardwidth,laser_color=args.lasercolor,gpu=args.gpu)
+     dis.test()
     #python backend.py --surveydistance 100 --wheelbase 1300 --heightthreashold 10 --actualboardwidth 13.6 --lasercolor green --gpu 0
