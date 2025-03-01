@@ -36,6 +36,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define DT (0.01f)
+#define KP (2.0f)
+#define KI (0.0f)
 #define DIS_OFF_MAX_LEFT (-67)
 #define DIS_OFF_MAX_RIGHT (67)
 #define STEERING_ANGLE_MAX_LEFT (-20.0f)
@@ -71,6 +74,9 @@ uint8_t dirction = 0;
 uint8_t knobRotation_P = 0;
 uint8_t deviceAddr = 0;
 int8_t dis_off = 0;
+float integral_global;
+float pidOutput_global;
+float steerAngle_global;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -174,11 +180,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  Drive_Motor_Start(1);
+	  Drive_Motor_Start(1);
 	  Steering_Servo_Control(dis_off);
-	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
+//	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
 //	  knobRotation_P = Knob_Rotation_Percent()*100;
 
 	  //180 deg -> CCR = 125, 0 deg -> CCR = 25
@@ -212,7 +218,7 @@ int main(void)
 //	  ADXL_getAccelFloat(accelData_g);
 
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-	  HAL_Delay(500);
+	  HAL_Delay(10);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -299,26 +305,41 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 
 	if (RxHeader.StdId == 0x123) {
 		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-		dis_off = RxData[0];
+		dis_off = RxData[0]*(-1);
 	}
 
 }
 
 void Steering_Servo_Control(int8_t offsetVal){
 	//Clamp dis_off to valid range
-	if (offsetVal != 100){
+	static float integral = 0.0f;     // integral term (accumulated error)
+
+	if (offsetVal != -100){
 		if (offsetVal < DIS_OFF_MAX_LEFT) {
 			offsetVal = DIS_OFF_MAX_LEFT;
 		} else if (offsetVal >= DIS_OFF_MAX_RIGHT) {
 			offsetVal = DIS_OFF_MAX_RIGHT;
 		}
 
+		float error = offsetVal;   // setpoint is zero offset
+		integral += error * DT;           // integrate
+
+		// PID output = KP*error + KI*integral + KD*derivative
+		float pidOutput = (KP * error) + (KI * integral);
+
 		//Linear interpolation from dis_off to steering angle
 		float steerAngle = STEERING_ANGLE_MAX_LEFT
-			+ ( (float)(offsetVal - DIS_OFF_MAX_LEFT)
+			+ ( (float)(pidOutput - DIS_OFF_MAX_LEFT)
 				/ (float)(DIS_OFF_MAX_RIGHT - DIS_OFF_MAX_LEFT) )
 			  * ( STEERING_ANGLE_MAX_RIGHT - STEERING_ANGLE_MAX_LEFT );
 
+//		float steerAngle = pidOutput;
+		    if (steerAngle < STEERING_ANGLE_MAX_LEFT) {
+		        steerAngle = STEERING_ANGLE_MAX_LEFT;   // clamp to -20°
+		    }
+		    else if (steerAngle > STEERING_ANGLE_MAX_RIGHT) {
+		        steerAngle = STEERING_ANGLE_MAX_RIGHT;  // clamp to +20°
+		    }
 		//Linear interpolation from steering angle to ccr value
 		float ccrValue = SERVO_CCR_AT_NEG20
 			+ ( (steerAngle - STEERING_ANGLE_MAX_LEFT)
@@ -327,6 +348,9 @@ void Steering_Servo_Control(int8_t offsetVal){
 
 		//Write to the timer’s CCR register (cast to uint16_t)
 		htim2.Instance->CCR1 = (uint16_t) ccrValue;
+		integral_global = integral;
+		pidOutput_global = pidOutput;
+		steerAngle_global = steerAngle;
 	}
 }
 
