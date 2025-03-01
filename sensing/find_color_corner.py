@@ -28,23 +28,22 @@ def config_img():
     cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
     cap.release()
 def get_img():
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     cap.set(cv2.CAP_PROP_FPS,60)
-    cap.set(cv2.CAP_PROP_BRIGHTNESS,136)
-    cap.set(cv2.CAP_PROP_CONTRAST,35)
-    cap.set(cv2.CAP_PROP_SATURATION,40)
-    cap.set(cv2.CAP_PROP_HUE,-600)
-    cap.set(cv2.CAP_PROP_GAMMA,140)
-    cap.set(cv2.CAP_PROP_AUTOFOCUS,0)
-    cap.set(cv2.CAP_PROP_FOCUS,255)
-    cap.set(cv2.CAP_PROP_AUTO_WB,0)
-    cap.set(cv2.CAP_PROP_WHITE_BALANCE_BLUE_U, 4700)
+    cap.set(cv2.CAP_PROP_BRIGHTNESS,100)
+    cap.set(cv2.CAP_PROP_CONTRAST,128)
+    cap.set(cv2.CAP_PROP_SATURATION,128)
+    cap.set(cv2.CAP_PROP_HUE,128)
+    cap.set(cv2.CAP_PROP_AUTOFOCUS,1)
+    cap.set(cv2.CAP_PROP_AUTO_WB,1)
+    #cap.set(cv2.CAP_PROP_WHITE_BALANCE_BLUE_U, 4700)
     cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+    #cap.set(cv2.CAP_PROP_EXPOSURE, -2)
     cap.release()
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    time.sleep(3)
+    cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+    time.sleep(5)
     ret, img = cap.read()
     cap.release()
     return img
@@ -55,8 +54,8 @@ def load_img():
     return img
 
 sensing = Sensing()
-img = load_img()
-img , _ = sensing.pt(img)
+img = get_img()
+#img , _ = sensing.pt(img)
 
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -69,8 +68,8 @@ def on_trackbar(img):
     green_channel = img[:, :, 1]
     _, binary = cv2.threshold(green_channel, minThreshold, maxThreshold, cv2.THRESH_BINARY)
     cv2.imshow("Threshold", binary)
-cv2.createTrackbar("Min Threshold", "Threshold", 100, 255, on_trackbar)
-cv2.createTrackbar("Max Threshold", "Threshold", 200, 255, on_trackbar)
+#cv2.createTrackbar("Min Threshold", "Threshold", 100, 255, on_trackbar)
+#cv2.createTrackbar("Max Threshold", "Threshold", 200, 255, on_trackbar)
 
 # while True:
 #     on_trackbar(img)
