@@ -6,4 +6,4 @@
 ../Core/Src/main.c:307:6:Steering_Servo_Control	4
 ../Core/Src/main.c:333:6:Drive_Motor_Control	2
 ../Core/Src/main.c:342:6:Drive_Motor_Start	3
-../Core/Src/main.c:361:6:Error_Handler	1
+../Core/Src/main.c:362:6:Error_Handler	1

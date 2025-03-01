@@ -40,9 +40,9 @@
 #define DIS_OFF_MAX_RIGHT (67)
 #define STEERING_ANGLE_MAX_LEFT (-20.0f)
 #define STEERING_ANGLE_MAX_RIGHT (20.0f)
-#define SERVO_CCR_AT_CENTER 752
-#define SERVO_CCR_AT_NEG20  678
-#define SERVO_CCR_AT_POS20  830
+#define SERVO_CCR_AT_CENTER 765
+#define SERVO_CCR_AT_NEG20  690
+#define SERVO_CCR_AT_POS20  840
 
 #define DRIVE_MOTOR_MAX_SPEED 1000
 #define DRIVE_MOTOR_MIN_SPEED 0
@@ -131,7 +131,7 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_CAN_MspInit(&hcan1);
   CAN_Config();
 
   if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK) {
@@ -174,11 +174,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  Drive_Motor_Start(1);
-//	  Steering_Servo_Control(dis_off);
-//	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+//	  Drive_Motor_Start(1);
+	  Steering_Servo_Control(dis_off);
+	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-//	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
+	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
 //	  knobRotation_P = Knob_Rotation_Percent()*100;
 
 	  //180 deg -> CCR = 125, 0 deg -> CCR = 25
@@ -194,15 +194,15 @@ int main(void)
 //	  HAL_Delay(2000);
 //	  htim2.Instance->CCR1 = 1250;
 //	  if (dirction == 0){
-//	 		  for (int i = 250; i < 1250; i+=10){
-//	 			  htim2.Instance->CCR1 = i;
-//	 			  HAL_Delay(5);
+//	 		  for (int i = DIS_OFF_MAX_LEFT; i < DIS_OFF_MAX_RIGHT; i+=1){
+//	 			 Steering_Servo_Control(i);
+//	 			 HAL_Delay(10);
 //	 		  }
 //	 		  dirction = 1;
 //	 	  } else {
-//	 		  for (int i = 1250; i > 250; i-=10){
-//	 			  htim2.Instance->CCR1 = i;
-//	 			  HAL_Delay(5);
+//	 		  for (int i = DIS_OFF_MAX_RIGHT; i > DIS_OFF_MAX_LEFT; i-=1){
+//	 			 Steering_Servo_Control(i);
+//	 			 HAL_Delay(10);
 //	 		  }
 //	 		  dirction = 0;
 //	 	  }
@@ -212,7 +212,7 @@ int main(void)
 //	  ADXL_getAccelFloat(accelData_g);
 
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-//	  HAL_Delay(500);
+	  HAL_Delay(500);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -341,14 +341,15 @@ void Drive_Motor_Control(uint16_t speed){
 
 void Drive_Motor_Start(float C_drivenDistance){
 	static uint8_t fullSpeed = 0;
+	//Speed ramp up
 	if (!fullSpeed) {
-		for (int speed = 100; speed < 1000; speed += 2) {
+		for (int speed = 100; speed < DRIVE_MOTOR_MAX_SPEED; speed += 2) {
 			Drive_Motor_Control(speed);
 			HAL_Delay(1);
 		}
 		fullSpeed = 1;
 	} else {
-		Drive_Motor_Control(1000);
+		Drive_Motor_Control(DRIVE_MOTOR_MAX_SPEED);
 	}
 }
 
