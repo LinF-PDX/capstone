@@ -38,7 +38,7 @@
 /* USER CODE BEGIN PD */
 #define DT (0.01f)
 #define KP (2.0f)
-#define KI (0.0f)
+#define KI (0.5f)
 #define DIS_OFF_MAX_LEFT (-67)
 #define DIS_OFF_MAX_RIGHT (67)
 #define STEERING_ANGLE_MAX_LEFT (-20.0f)
