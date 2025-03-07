@@ -49,6 +49,9 @@
 
 #define DRIVE_MOTOR_MAX_SPEED 1000
 #define DRIVE_MOTOR_MIN_SPEED 0
+
+#define ENCODER_PULSES_PER_WHEEL_TURN_26RPM 2387.0
+#define DRIVE_WHEEL_CIRCUMFERENCE_METER 0.2042
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -77,6 +80,8 @@ int8_t dis_off = 0;
 float integral_global;
 float pidOutput_global;
 float steerAngle_global;
+
+float distanceTravel = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -98,6 +103,23 @@ float Knob_Rotation_Percent(void) {
 	ADC_VAL = HAL_ADC_GetValue(&hadc1);
 	HAL_ADC_Stop(&hadc1);
 	return (float)ADC_VAL/4095; //returns ADC percentage ranges from 0-1
+}
+
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
+	static uint32_t encoder_counter = 0;
+	static uint32_t encoder_position = 0;
+	static uint32_t overflow_counter = 0;
+	static uint32_t encoder_temp = 0;
+
+	encoder_counter = __HAL_TIM_GET_COUNTER(htim);
+	if (encoder_counter == 65535) {
+		encoder_temp += 65536;
+		overflow_counter = encoder_temp - 1;
+	} else {
+		overflow_counter = encoder_temp + encoder_counter;
+	}
+	encoder_position = overflow_counter/4;
+	distanceTravel = (float) (encoder_position/ENCODER_PULSES_PER_WHEEL_TURN_26RPM) * DRIVE_WHEEL_CIRCUMFERENCE_METER;
 }
 /* USER CODE END 0 */
 
@@ -171,6 +193,7 @@ int main(void)
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  HAL_TIM_Encoder_Start_IT(&htim4, TIM_CHANNEL_ALL);
 
   htim2.Instance->CCR1 = SERVO_CCR_AT_CENTER;
 
