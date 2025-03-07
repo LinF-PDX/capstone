@@ -81,7 +81,11 @@ float integral_global;
 float pidOutput_global;
 float steerAngle_global;
 
-float distanceTravel = 0;
+uint32_t encoder_counter = 0;
+uint32_t encoder_position = 0;
+uint32_t overflow_counter = 0;
+uint32_t encoder_temp = 0;
+float C_drivenDistance = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -106,10 +110,6 @@ float Knob_Rotation_Percent(void) {
 }
 
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
-	static uint32_t encoder_counter = 0;
-	static uint32_t encoder_position = 0;
-	static uint32_t overflow_counter = 0;
-	static uint32_t encoder_temp = 0;
 
 	encoder_counter = __HAL_TIM_GET_COUNTER(htim);
 	if (encoder_counter == 65535) {
@@ -119,7 +119,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 		overflow_counter = encoder_temp + encoder_counter;
 	}
 	encoder_position = overflow_counter/4;
-	distanceTravel = (float) (encoder_position/ENCODER_PULSES_PER_WHEEL_TURN_26RPM) * DRIVE_WHEEL_CIRCUMFERENCE_METER;
+	C_drivenDistance = (float) (encoder_position/ENCODER_PULSES_PER_WHEEL_TURN_26RPM) * DRIVE_WHEEL_CIRCUMFERENCE_METER;
 }
 /* USER CODE END 0 */
 
@@ -203,7 +203,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  Drive_Motor_Start(1);
+	  Drive_Motor_Start(2);
 	  Steering_Servo_Control(dis_off);
 //	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
@@ -386,16 +386,18 @@ void Drive_Motor_Control(uint16_t speed){
 	}
 }
 
-void Drive_Motor_Start(float C_drivenDistance){
+void Drive_Motor_Start(float drivenDistance){
 	static uint8_t fullSpeed = 0;
 	//Speed ramp up
 	if (!fullSpeed) {
-		for (int speed = 100; speed < DRIVE_MOTOR_MAX_SPEED; speed += 2) {
+		for (int speed = 100; speed < DRIVE_MOTOR_MAX_SPEED; speed += 2){
 			Drive_Motor_Control(speed);
 			HAL_Delay(1);
 		}
 		fullSpeed = 1;
-	} else {
+	} else if (C_drivenDistance >= drivenDistance){
+		Drive_Motor_Control(DRIVE_MOTOR_MIN_SPEED);
+	} else if (C_drivenDistance < drivenDistance){
 		Drive_Motor_Control(DRIVE_MOTOR_MAX_SPEED);
 	}
 }
