@@ -432,7 +432,7 @@ class Sensing():
         if target_cross == "error":
             return "error_cross"
         target_x = self.find_circle(img)
-        cv2.imshow('Camera', img)
+        #cv2.imshow('Camera', img)
         if target_x == "error":
             return "error_dot"
         else:
