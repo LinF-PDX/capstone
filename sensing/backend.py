@@ -16,8 +16,8 @@ def restart_program():
     sys.exit(0)
 
 def add_parser_arguments(parser):
-    parser.add_argument("--surveydistance", type=int, default=100,
-        help="S_surveyDistance (0m - 255m)")
+    parser.add_argument("--surveydistance", type=int, default=100, 
+        help="S_surveyDistance (0m - 255m)") 
     parser.add_argument("--wheelbase", type=int, default=1300,
         help="S_wheelBase (0mm - 2000mm)")
     parser.add_argument("--heightthreashold", type=int, default=10,
@@ -63,7 +63,7 @@ def can_init():
 
 def can_send(data,can0):
     try:
-        data_send = struct.pack('<b', data*10)
+        data_send = struct.pack('<b', int(data*10))
         msg = can.Message(is_extended_id=False, arbitration_id=0x123, data=data_send)
         can0.send(msg)
     except CanOperationError:
@@ -77,13 +77,17 @@ def can_receive(can0):
         msg = can0.recv(0.01)  # receive(time out)
         if msg is None:
             return None, None
+
         else:
-            data= struct.unpack('<Hh', msg.data[:4])
-            if not (isinstance(data[0], int) and 0 <= data[0] <= 25500):
-                return None, None
-            if not (isinstance(data[1], int) and -500 <= data[1] <= 500):
-                return None, None
-            return float(data[0])/100,float(data[1])/10
+            if msg.arbitration_id == 0x101:
+                data= struct.unpack('<Hh', msg.data[:4])
+                if not (isinstance(data[0], int) and 0 <= data[0] <= 25500):
+                    return None, None
+                if not (isinstance(data[1], int) and -500 <= data[1] <= 500):
+                    return None, None
+                return float(data[0])/100,float(data[1])/10
+            else:
+                return None,None
     except struct.error as e:
         logger.error(f"Unable To Unpack Data {e}")
         return None, None
@@ -97,11 +101,11 @@ def can_initvalue(args,S_Enable,can0):
         S_wheelbase = args.wheelbase
         S_heightthreashold = args.heightthreashold
         data_tuple=(S_surveydistance,S_wheelbase,S_heightthreashold,S_Enable)
-        data_init=struct.pack('<BHb?',data_tuple)
+        data_init=struct.pack('<BHb?',*data_tuple)
         msg=can.Message(is_extended_id = False, arbitration_id=0x102,data=data_init)
         can0.send(msg)
     except struct.error as e:
-        logger.error(f"Unable To Unpack Data {e}")
+        logger.error(f"Unable To Unpack Data haha {e}")
     except CanOperationError as e:
         logger.error(f"CAN Send Failed {e}")
     except Exception as e:
@@ -124,7 +128,7 @@ class Sensing():
         self.S_Resolution = [640,480]
         self.gpu = gpu
         self.cross = []
-        self.roi = np.array([[525,25],[141,30],[81,459],[567,447]])
+        self.roi = np.array([[516,33],[116,45],[56,455],[601,452]])
         if not isinstance(self.roi, np.ndarray):
             logger.error("roi must be an np.array")
             self.roi = np.array([[536,64],[98,61],[60,479],[580,479]])
@@ -428,7 +432,7 @@ class Sensing():
         if target_cross == "error":
             return "error_cross"
         target_x = self.find_circle(img)
-        #cv2.imshow('Camera', img)
+        cv2.imshow('Camera', img)
         if target_x == "error":
             return "error_dot"
         else:
@@ -442,7 +446,7 @@ class Sensing():
             'win32': cv2.CAP_DSHOW
         }
         
-        # 尝试所有可用后端
+        
         for backend in [backends.get(sys.platform), cv2.CAP_ANY]:
             self.cap = cv2.VideoCapture(0, backend)
             if self.cap.isOpened():
