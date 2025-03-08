@@ -38,7 +38,7 @@
 /* USER CODE BEGIN PD */
 #define DT (0.01f)
 #define KP (2.0f)
-#define KI (0.5f)
+#define KI (0.0f)
 #define DIS_OFF_MAX_LEFT (-67)
 #define DIS_OFF_MAX_RIGHT (67)
 #define STEERING_ANGLE_MAX_LEFT (-20.0f)
@@ -76,7 +76,10 @@ float accelData_g[3];
 uint8_t dirction = 0;
 uint8_t knobRotation_P = 0;
 uint8_t deviceAddr = 0;
-int8_t dis_off = 0;
+int8_t dis_off = -100;
+uint8_t S_surveyDistanceSet = 0;
+uint8_t S_heightThreashold = 255;
+uint8_t S_startSurvey = 0;
 float integral_global;
 float pidOutput_global;
 float steerAngle_global;
@@ -86,6 +89,8 @@ uint32_t encoder_position = 0;
 uint32_t overflow_counter = 0;
 uint32_t encoder_temp = 0;
 float C_drivenDistance = 0;
+uint8_t start_delay = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -111,15 +116,17 @@ float Knob_Rotation_Percent(void) {
 
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 
-	encoder_counter = __HAL_TIM_GET_COUNTER(htim);
-	if (encoder_counter == 65535) {
-		encoder_temp += 65536;
-		overflow_counter = encoder_temp - 1;
-	} else {
-		overflow_counter = encoder_temp + encoder_counter;
+	if (start_delay) {
+		encoder_counter = __HAL_TIM_GET_COUNTER(htim);
+		if (encoder_counter >= 65535) {
+			encoder_temp += 65536;
+			overflow_counter = encoder_temp - 1;
+		} else {
+			overflow_counter = encoder_temp + encoder_counter;
+		}
+		encoder_position = overflow_counter/4;
+		C_drivenDistance = (float) (encoder_position/ENCODER_PULSES_PER_WHEEL_TURN_26RPM) * DRIVE_WHEEL_CIRCUMFERENCE_METER;
 	}
-	encoder_position = overflow_counter/4;
-	C_drivenDistance = (float) (encoder_position/ENCODER_PULSES_PER_WHEEL_TURN_26RPM) * DRIVE_WHEEL_CIRCUMFERENCE_METER;
 }
 /* USER CODE END 0 */
 
@@ -203,7 +210,18 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  Drive_Motor_Start(2);
+//	  if (S_startSurvey && (dis_off != (-100))){
+//		  Drive_Motor_Start(S_surveyDistanceSet);
+//	  }
+	  if (S_startSurvey){
+		  if (!start_delay) {
+			  for (int speed = 0; speed < 1000; speed++){
+				HAL_Delay(1);
+			}
+			start_delay = 1;
+		  }
+		  Drive_Motor_Start(S_surveyDistanceSet);
+	  }
 	  Steering_Servo_Control(dis_off);
 //	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
@@ -329,6 +347,10 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	if (RxHeader.StdId == 0x123) {
 		HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 		dis_off = RxData[0]*(-1);
+	} else if (RxHeader.StdId == 0x102) {
+		S_surveyDistanceSet = RxData[0];
+		S_heightThreashold = RxData[1];
+		S_startSurvey = RxData[4] & 0x01;
 	}
 
 }
@@ -357,12 +379,12 @@ void Steering_Servo_Control(int8_t offsetVal){
 			  * ( STEERING_ANGLE_MAX_RIGHT - STEERING_ANGLE_MAX_LEFT );
 
 //		float steerAngle = pidOutput;
-		    if (steerAngle < STEERING_ANGLE_MAX_LEFT) {
-		        steerAngle = STEERING_ANGLE_MAX_LEFT;   // clamp to -20°
-		    }
-		    else if (steerAngle > STEERING_ANGLE_MAX_RIGHT) {
-		        steerAngle = STEERING_ANGLE_MAX_RIGHT;  // clamp to +20°
-		    }
+		if (steerAngle < STEERING_ANGLE_MAX_LEFT) {
+			steerAngle = STEERING_ANGLE_MAX_LEFT;   // clamp to -20°
+		}
+		else if (steerAngle > STEERING_ANGLE_MAX_RIGHT) {
+			steerAngle = STEERING_ANGLE_MAX_RIGHT;  // clamp to +20°
+		}
 		//Linear interpolation from steering angle to ccr value
 		float ccrValue = SERVO_CCR_AT_NEG20
 			+ ( (steerAngle - STEERING_ANGLE_MAX_LEFT)
