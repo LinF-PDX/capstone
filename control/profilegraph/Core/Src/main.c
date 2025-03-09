@@ -85,8 +85,9 @@ float pidOutput_global;
 float steerAngle_global;
 float length = 6.0f;
 float theta = 0.0f;
-float theta_deg = 0.0f;
+//float theta_deg = 0.0f;
 float height_diff = 0.0f;
+int16_t height_diff_send = 0;
 
 uint32_t encoder_counter = 0;
 uint32_t encoder_position = 0;
@@ -183,20 +184,18 @@ int main(void)
   ADXL.IntMode = ADXL_INT_ACTIVELOW;
   ADXL.Range = ADXL_RANGE_2G;
 
-  TxHeader.StdId = 0x123;
-  TxHeader.DLC = 8;
+  TxHeader.StdId = 0x101;
+  TxHeader.DLC = 5;
   TxHeader.IDE = CAN_ID_STD;
   TxHeader.RTR = CAN_RTR_DATA;
   TxHeader.TransmitGlobalTime = DISABLE;
 
-  TxData[0] = 0x01;
-  TxData[1] = 0x02;
-  TxData[2] = 0x03;
-  TxData[3] = 0x04;
-  TxData[4] = 0x05;
-  TxData[5] = 0x06;
-  TxData[6] = 0x07;
-  TxData[7] = 0x08;
+//  TxData[0] = 0x00;
+//  TxData[1] = 0x00;
+//  TxData[2] = 0x00;
+//  TxData[3] = 0x00;
+//  TxData[4] = 0x00;
+//  TxData[5] = 0x00;
 
 
   ADXL_Init(&ADXL);
@@ -321,9 +320,13 @@ void C_transverseHeight() {
     float accel_z = accelData_g[2];
 
     theta = atanf(accel_x / accel_z);
-    theta_deg =  theta * (180.0f / M_PI)
-
+    //theta_deg =  theta * (180.0f / 3.14)
     height_diff = length * sinf(theta);
+    height_diff_send = height_diff * 10;
+
+    TxData[2] = (height_diff_send) & 0xFF;
+    TxData[3] = ((height_diff_send) >> 8) & 0xFF;
+    HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
 }
 /* USER CODE END  */
 
