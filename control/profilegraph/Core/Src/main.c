@@ -83,6 +83,10 @@ uint8_t S_startSurvey = 0;
 float integral_global;
 float pidOutput_global;
 float steerAngle_global;
+float length = 6.0f;
+float theta = 0.0f;
+float theta_deg = 0.0f;
+float height_diff = 0.0f;
 
 uint32_t encoder_counter = 0;
 uint32_t encoder_position = 0;
@@ -196,7 +200,7 @@ int main(void)
 
 
   ADXL_Init(&ADXL);
-//  ADXL_Measure(ON);
+  ADXL_Measure(ON);
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
@@ -223,6 +227,7 @@ int main(void)
 		  Drive_Motor_Start(S_surveyDistanceSet);
 	  }
 	  Steering_Servo_Control(dis_off);
+	  C_transverseHeight();
 //	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 //	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
@@ -255,8 +260,8 @@ int main(void)
 //	 	  }
 
 //	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-//	  ADXL_getAccelRaw(accelData);
-//	  ADXL_getAccelFloat(accelData_g);
+	  ADXL_getAccelRaw(accelData);
+	  ADXL_getAccelFloat(accelData_g);
 
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 	  HAL_Delay(10);
@@ -307,6 +312,20 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 }
+
+/* USER CODE BEGIN */
+void C_transverseHeight() {
+    float accelData_g[3];
+    ADXL_getAccelFloat(accelData_g);
+    float accel_x = accelData_g[0];
+    float accel_z = accelData_g[2];
+
+    theta = atanf(accel_x / accel_z);
+    theta_deg =  theta * (180.0f / M_PI)
+
+    height_diff = length * sinf(theta);
+}
+/* USER CODE END  */
 
 /* USER CODE BEGIN 4 */
 static void CAN_Config(void)
