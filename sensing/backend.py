@@ -101,7 +101,7 @@ def can_initvalue(args,S_Enable,can0):
         S_wheelbase = args.wheelbase
         S_heightthreashold = args.heightthreashold
         data_tuple=(S_surveydistance,S_wheelbase,S_heightthreashold,S_Enable)
-        data_init=struct.pack('<BHb?',*data_tuple)
+        data_init=struct.pack('<BHB?',*data_tuple)
         msg=can.Message(is_extended_id = False, arbitration_id=0x102,data=data_init)
         can0.send(msg)
     except struct.error as e:

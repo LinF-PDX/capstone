@@ -1,13 +1,5 @@
-colorzero==2.0 
-lgpio==0.2.2.0
-msgpack==1.1.0
-numpy==1.26.4
-opencv-python==4.10.0.82
-packaging==24.2
-psutil==6.1.1
-python-can==4.5.0
-rpi-lgpio==0.6
+numpy==2.2.3
+opencv_python==4.10.0.82
+python_can==4.5.0
 RPi.GPIO==0.7.1
-spidev==3.6
-typing_extensions==4.12.2
-wrapt==1.17.1
+rpi_lgpio==0.6
