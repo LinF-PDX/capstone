@@ -210,10 +210,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  if (S_startSurvey && (dis_off != (-100))){
-//		  Drive_Motor_Start(S_surveyDistanceSet);
-//	  }
-	  if (S_startSurvey){
+	  if (S_startSurvey && (dis_off != (-100))){
 		  if (!start_delay) {
 			  for (int speed = 0; speed < 1000; speed++){
 				HAL_Delay(1);
