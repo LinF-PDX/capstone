@@ -27,11 +27,20 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "ADXL.h"
+#include "math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef enum {
+	STATE_IDLE = 0,
+	STATE_STARTUP,
+	STATE_RUNNING,
+	STATE_STOPPING,
+	STATE_ERROR,
+} State;
 
+State currentState;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -41,6 +50,7 @@
 #define KI (0.0f)
 #define DIS_OFF_MAX_LEFT (-67)
 #define DIS_OFF_MAX_RIGHT (67)
+#define STEERING_ANGLE_CENTER (0.0f)
 #define STEERING_ANGLE_MAX_LEFT (-20.0f)
 #define STEERING_ANGLE_MAX_RIGHT (20.0f)
 #define SERVO_CCR_AT_CENTER 765
@@ -52,6 +62,8 @@
 
 #define ENCODER_PULSES_PER_WHEEL_TURN_26RPM 2387.0
 #define DRIVE_WHEEL_CIRCUMFERENCE_METER 0.2042
+
+#define DIS_OFF_DEFAULT (-100)
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -68,17 +80,15 @@ uint8_t TxData[8];
 uint8_t RxData[8];
 uint32_t TxMailbox;
 
-
 ADXL_InitTypeDef ADXL;
 adxlStatus adxlSts;
 int32_t accelData[3];
 float accelData_g[3];
-uint8_t dirction = 0;
-uint8_t knobRotation_P = 0;
-uint8_t deviceAddr = 0;
-int8_t dis_off = -100;
+
+int8_t dis_off;
 uint8_t S_surveyDistanceSet = 0;
 uint8_t S_heightThreashold = 255;
+uint16_t S_wheelBase = 0;
 uint8_t S_startSurvey = 0;
 float integral_global;
 float pidOutput_global;
@@ -89,49 +99,54 @@ float theta = 0.0f;
 float height_diff = 0.0f;
 int16_t height_diff_send = 0;
 
-uint32_t encoder_counter = 0;
+uint32_t current_encoder_value  = 0;
 uint32_t encoder_position = 0;
-uint32_t overflow_counter = 0;
-uint32_t encoder_temp = 0;
+uint32_t total_count = 0;
+uint32_t extended_counter = 0;
+uint32_t prev_encoder_value = 0;
+
 float C_drivenDistance = 0;
 uint8_t start_delay = 0;
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 static void CAN_Config(void);
+void Steering_Servo_Position(int8_t steeringAngle);
 void Steering_Servo_Control(int8_t offsetVal);
 void Drive_Motor_Control(uint16_t speed);
 void Drive_Motor_Start(float C_drivenDistance);
+void C_transverseHeight(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-float Knob_Rotation_Percent(void) {
-	uint16_t ADC_VAL;
-
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, 10);
-	ADC_VAL = HAL_ADC_GetValue(&hadc1);
-	HAL_ADC_Stop(&hadc1);
-	return (float)ADC_VAL/4095; //returns ADC percentage ranges from 0-1
-}
-
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim) {
 
-	if (start_delay) {
-		encoder_counter = __HAL_TIM_GET_COUNTER(htim);
-		if (encoder_counter >= 65535) {
-			encoder_temp += 65536;
-			overflow_counter = encoder_temp - 1;
-		} else {
-			overflow_counter = encoder_temp + encoder_counter;
-		}
-		encoder_position = overflow_counter/4;
-		C_drivenDistance = (float) (encoder_position/ENCODER_PULSES_PER_WHEEL_TURN_26RPM) * DRIVE_WHEEL_CIRCUMFERENCE_METER;
+//	static uint32_t encoder_position = 0;
+//	static uint32_t overflow_counter = 0;
+//	static uint32_t encoder_temp = 0;
+
+    // Read the current value from the timer counter
+	current_encoder_value  = __HAL_TIM_GET_COUNTER(htim);
+
+    // Detect overflow: if the current value is less than the previous value,
+    // it means the counter has wrapped around from 65535 back to 0.
+	if (current_encoder_value < prev_encoder_value) {
+	        extended_counter += 65536; // add one full count cycle (0x10000)
 	}
+
+    prev_encoder_value = current_encoder_value;
+
+//	if (current_encoder_value  >= 65531) {
+//		extended_counter += 65536;
+//		overflow_counter = extended_counter - 1;
+//	} else {
+		total_count = extended_counter + current_encoder_value;
+//	}
+	encoder_position = total_count/4;
+	C_drivenDistance = (float) (encoder_position/ENCODER_PULSES_PER_WHEEL_TURN_26RPM) * DRIVE_WHEEL_CIRCUMFERENCE_METER;
 }
 /* USER CODE END 0 */
 
@@ -207,23 +222,80 @@ int main(void)
 
   htim2.Instance->CCR1 = SERVO_CCR_AT_CENTER;
 
+  State nextState = STATE_IDLE;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if (S_startSurvey && (dis_off != (-100))){
-		  if (!start_delay) {
-			  for (int speed = 0; speed < 1000; speed++){
-				HAL_Delay(1);
-			}
-			start_delay = 1;
-		  }
-		  Drive_Motor_Start(S_surveyDistanceSet);
+	  switch (nextState){
+	  	  case STATE_IDLE:
+	  		  currentState = STATE_IDLE;
+	  		  dis_off = DIS_OFF_DEFAULT;
+	  		  Drive_Motor_Control(DRIVE_MOTOR_MIN_SPEED);
+//	  		  Drive_Motor_Control(DRIVE_MOTOR_MAX_SPEED);
+	  		  Steering_Servo_Position(STEERING_ANGLE_CENTER);
+	  		  current_encoder_value = __HAL_TIM_SET_COUNTER(&htim4, 0);
+	  		  if (S_startSurvey){
+	  			  nextState = STATE_STARTUP;
+	  		  }
+	  		  break;
+
+	  	  case STATE_STARTUP:
+	  		  currentState = STATE_STARTUP;
+	  		  if (dis_off != (DIS_OFF_DEFAULT)){
+	  			  nextState = STATE_RUNNING;
+	  		  }
+	  		  break;
+
+	  	  case STATE_RUNNING:
+	  		  currentState = STATE_RUNNING;
+	  		  HAL_TIM_Encoder_Start_IT(&htim4, TIM_CHANNEL_ALL);
+	  		  C_transverseHeight();
+	  		  Steering_Servo_Control(dis_off);
+			  Drive_Motor_Start(S_surveyDistanceSet);
+			  //Add can message broadcast
+			  if (C_drivenDistance >= S_surveyDistanceSet){
+				  nextState = STATE_STOPPING;
+			  }
+	  		  break;
+
+	  	  case STATE_STOPPING:
+	  		  currentState = STATE_STOPPING;
+	  		  Drive_Motor_Control(DRIVE_MOTOR_MIN_SPEED);
+	  		  HAL_TIM_Encoder_Stop_IT(&htim4, TIM_CHANNEL_ALL);
+	  		  C_drivenDistance = 0;
+	  		  current_encoder_value  = 0;
+	  		  encoder_position = 0;
+	  		  total_count = 0;
+	  		  extended_counter = 0;
+	  		  prev_encoder_value = 0;
+	  		  if (!S_startSurvey){
+	  			  nextState = STATE_IDLE;
+	  		  }
+	  		  break;
+
+	  	  case STATE_ERROR:
+	  		  currentState = STATE_ERROR;
+	  		  break;
+
+	  	  default:
+	  		  nextState = STATE_ERROR;
+	  		  break;
 	  }
-	  Steering_Servo_Control(dis_off);
-	  C_transverseHeight();
+
+//	  if (S_startSurvey && (dis_off != (-100))){
+//		  if (!start_delay) {
+//			  for (int speed = 0; speed < 1000; speed++){
+//				HAL_Delay(1);
+//			}
+//			start_delay = 1;
+//		  }
+//		  Drive_Motor_Start(S_surveyDistanceSet);
+//	  }
+//	  Steering_Servo_Control(dis_off);
+//	  C_transverseHeight();
 //	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 //	  HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
@@ -256,8 +328,6 @@ int main(void)
 //	 	  }
 
 //	  HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-	  ADXL_getAccelRaw(accelData);
-	  ADXL_getAccelFloat(accelData_g);
 
 //	  HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 	  HAL_Delay(10);
@@ -310,7 +380,7 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN */
-void C_transverseHeight() {
+void C_transverseHeight(void) {
     float accelData_g[3];
     ADXL_getAccelFloat(accelData_g);
     float accel_x = accelData_g[0];
@@ -369,9 +439,27 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 	} else if (RxHeader.StdId == 0x102) {
 		S_surveyDistanceSet = RxData[0];
 		S_heightThreashold = RxData[1];
+		S_wheelBase = RxData[2] | (RxData[3] << 8);
 		S_startSurvey = RxData[4] & 0x01;
 	}
 
+}
+
+void Steering_Servo_Position(int8_t steeringAngle){
+	if (steeringAngle < STEERING_ANGLE_MAX_LEFT) {
+		steeringAngle = STEERING_ANGLE_MAX_LEFT;   // clamp to -20°
+	}
+	else if (steeringAngle > STEERING_ANGLE_MAX_RIGHT) {
+		steeringAngle = STEERING_ANGLE_MAX_RIGHT;  // clamp to +20°
+	}
+	//Linear interpolation from steering angle to ccr value
+	float ccrValue = SERVO_CCR_AT_NEG20
+		+ ( (steeringAngle - STEERING_ANGLE_MAX_LEFT)
+			/ (STEERING_ANGLE_MAX_RIGHT - STEERING_ANGLE_MAX_LEFT) )
+		  * (SERVO_CCR_AT_POS20 - SERVO_CCR_AT_NEG20);
+
+	//Write to the timer’s CCR register (cast to uint16_t)
+	htim2.Instance->CCR1 = (uint16_t) ccrValue;
 }
 
 void Steering_Servo_Control(int8_t offsetVal){
@@ -397,21 +485,7 @@ void Steering_Servo_Control(int8_t offsetVal){
 				/ (float)(DIS_OFF_MAX_RIGHT - DIS_OFF_MAX_LEFT) )
 			  * ( STEERING_ANGLE_MAX_RIGHT - STEERING_ANGLE_MAX_LEFT );
 
-//		float steerAngle = pidOutput;
-		if (steerAngle < STEERING_ANGLE_MAX_LEFT) {
-			steerAngle = STEERING_ANGLE_MAX_LEFT;   // clamp to -20°
-		}
-		else if (steerAngle > STEERING_ANGLE_MAX_RIGHT) {
-			steerAngle = STEERING_ANGLE_MAX_RIGHT;  // clamp to +20°
-		}
-		//Linear interpolation from steering angle to ccr value
-		float ccrValue = SERVO_CCR_AT_NEG20
-			+ ( (steerAngle - STEERING_ANGLE_MAX_LEFT)
-				/ (STEERING_ANGLE_MAX_RIGHT - STEERING_ANGLE_MAX_LEFT) )
-			  * (SERVO_CCR_AT_POS20 - SERVO_CCR_AT_NEG20);
-
-		//Write to the timer’s CCR register (cast to uint16_t)
-		htim2.Instance->CCR1 = (uint16_t) ccrValue;
+		Steering_Servo_Position(steerAngle);
 		integral_global = integral;
 		pidOutput_global = pidOutput;
 		steerAngle_global = steerAngle;
