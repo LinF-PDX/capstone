@@ -218,7 +218,6 @@ int main(void)
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-  HAL_TIM_Encoder_Start_IT(&htim4, TIM_CHANNEL_ALL);
 
   htim2.Instance->CCR1 = SERVO_CCR_AT_CENTER;
 
