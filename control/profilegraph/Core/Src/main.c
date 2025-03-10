@@ -190,8 +190,8 @@ int main(void)
   TxHeader.RTR = CAN_RTR_DATA;
   TxHeader.TransmitGlobalTime = DISABLE;
 
-//  TxData[0] = 0x00;
-//  TxData[1] = 0x00;
+  TxData[0] = 0x00;
+  TxData[1] = 0x00;
 //  TxData[2] = 0x00;
 //  TxData[3] = 0x00;
 //  TxData[4] = 0x00;
