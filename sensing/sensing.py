@@ -1,4 +1,4 @@
-from backend import Sensing, can_send, can_init,can_receive, add_parser_arguments, can_initvalue, can_down, restart_program
+from backend import Sensing, can_send, can_init,can_receive, add_parser_arguments, can_initvalue, can_down, restart_program, can_distance_stop
 import logging
 import argparse
 import multiprocessing as mp
@@ -10,10 +10,14 @@ import RPi.GPIO as GPIO
 import numpy as np
 
 pin = 27
+GPIO.setmode(GPIO.BCM)
+LEDRED = 17
+LEDGREEN = 22
+GPIO.setup(LEDRED, GPIO.OUT)
+GPIO.setup(LEDGREEN, GPIO.OUT)
 S_Enable = False
 Comm_Process = None
 Sens_Process = None
-Total_Travel = 100 #100m
 BUFFER_SIZE = 10
 stop = mp.Event()
 
@@ -78,6 +82,7 @@ def sense_dot(conn,args):
             time.sleep(max(0,1/60-(time.time()-starttime)))
         except Exception as e:
             logger.exception(f"Error: {e}")
+            print("dvd sb le")
             break
     dis.cap.release()
     
@@ -93,8 +98,10 @@ def communication(conn,can0,can1,args):
     while not stop.is_set():
         if conn.poll():
             data = conn.recv()
-            can_send(int(data),can0)
+            can_send(data,can0)
         Travel_Distance, Height_Difference = can_receive(can0)
+        if Travel_Distance != None:
+            print("Travel_Distance "+str(Travel_Distance))
         if Travel_Distance == None or Height_Difference == None:
             pass
         else:
@@ -106,6 +113,7 @@ def communication(conn,can0,can1,args):
                 buffer.clear()
                 # Send_To_GUI(csv)
             if float(Travel_Distance) >= args.surveydistance:
+                can_distance_stop(can0)
                 stop.set()
     if len(buffer) > 0:
         with open(path, mode="a", newline="") as file:
@@ -127,10 +135,13 @@ def button_callback(channel):
             if Comm_Process.is_alive():
                 Comm_Process.terminate()
                 Comm_Process.join()
+
         Sens_Process = None
         Comm_Process = None
         can_down()
         S_Enable = False
+        GPIO.output(LEDRED, GPIO.HIGH)
+        GPIO.output(LEDGREEN, GPIO.LOW)
         logger.info("Closed")
     else: 
         stop.clear()
@@ -139,7 +150,7 @@ def button_callback(channel):
         except (OSError, ValueError) as e:
             restart_program()
         can0, can1 = can_init()
-        if can0 == None or can1 == None:
+        if can0 == None:
             restart_program()
         S_Enable = True
         can_initvalue(args,S_Enable,can0)
@@ -156,7 +167,9 @@ def button_callback(channel):
             logger.error(f"Permission Error Setting CPU Affinity")
         except OSError as e:
             logger.error(f"Error setting CPU affinity")
-       # S_Enable = True
+        # S_Enable = True
+        GPIO.output(LEDGREEN, GPIO.HIGH)
+        GPIO.output(LEDRED, GPIO.LOW)
         logger.info("Open")
         
 
@@ -168,7 +181,6 @@ if __name__ == "__main__":
     check_args(args)
     
     try:
-        GPIO.setmode(GPIO.BCM)
         GPIO.setup(pin,GPIO.IN,pull_up_down=GPIO.PUD_UP)
         GPIO.add_event_detect(pin,GPIO.RISING,callback=button_callback, bouncetime=400)
     except Exception as e:
@@ -184,6 +196,8 @@ if __name__ == "__main__":
     #    print("LOCAL_CTRL_MODE")
     #    LED = OFF
     try:
+        GPIO.output(LEDRED, GPIO.HIGH)
+        GPIO.output(LEDGREEN, GPIO.LOW)
         while True:
             time.sleep(0.1)
     except KeyboardInterrupt:

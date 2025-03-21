@@ -10,14 +10,25 @@ import subprocess
 
 logger = logging.getLogger("sensing")
 
+def can_distance_stop(can0):
+    try:
+        distance_stop = struct.pack('<?', 0)
+        msg_stop = can.Message(is_extended_id=False, arbitration_id=0x103, data=distance_stop)
+        can0.send(msg_stop)
+    except CanOperationError:
+        logger.error(f"CAN Distance Stop Send Failed")
+    except Exception as e:
+        logger.error(f"CAN Distance Stop Send Failed (Unexpected Error) {e}")
+        return None
+
 def restart_program():
     logger.warning("Restart")
     subprocess.Popen([sys.executable] + sys.argv)
     sys.exit(0)
 
 def add_parser_arguments(parser):
-    parser.add_argument("--surveydistance", type=int, default=100,
-        help="S_surveyDistance (0m - 255m)")
+    parser.add_argument("--surveydistance", type=int, default=100, 
+        help="S_surveyDistance (0m - 255m)") 
     parser.add_argument("--wheelbase", type=int, default=1300,
         help="S_wheelBase (0mm - 2000mm)")
     parser.add_argument("--heightthreashold", type=int, default=10,
@@ -63,7 +74,7 @@ def can_init():
 
 def can_send(data,can0):
     try:
-        data_send = struct.pack('<b', data*10)
+        data_send = struct.pack('<b', int(data*10))
         msg = can.Message(is_extended_id=False, arbitration_id=0x123, data=data_send)
         can0.send(msg)
     except CanOperationError:
@@ -77,13 +88,17 @@ def can_receive(can0):
         msg = can0.recv(0.01)  # receive(time out)
         if msg is None:
             return None, None
+
         else:
-            data= struct.unpack('<Hh', msg.data[:4])
-            if not (isinstance(data[0], int) and 0 <= data[0] <= 25500):
-                return None, None
-            if not (isinstance(data[1], int) and -500 <= data[1] <= 500):
-                return None, None
-            return float(data[0])/100,float(data[1])/10
+            if msg.arbitration_id == 0x101:
+                data= struct.unpack('<Hh', msg.data[:4])
+                if not (isinstance(data[0], int) and 0 <= data[0] <= 25500):
+                    return None, None
+                if not (isinstance(data[1], int) and -500 <= data[1] <= 500):
+                    return None, None
+                return float(data[0])/100,float(data[1])/10
+            else:
+                return None,None
     except struct.error as e:
         logger.error(f"Unable To Unpack Data {e}")
         return None, None
@@ -97,11 +112,11 @@ def can_initvalue(args,S_Enable,can0):
         S_wheelbase = args.wheelbase
         S_heightthreashold = args.heightthreashold
         data_tuple=(S_surveydistance,S_wheelbase,S_heightthreashold,S_Enable)
-        data_init=struct.pack('<BHb?',data_tuple)
+        data_init=struct.pack('<BHB?',*data_tuple)
         msg=can.Message(is_extended_id = False, arbitration_id=0x102,data=data_init)
         can0.send(msg)
     except struct.error as e:
-        logger.error(f"Unable To Unpack Data {e}")
+        logger.error(f"Unable To Unpack Data haha {e}")
     except CanOperationError as e:
         logger.error(f"CAN Send Failed {e}")
     except Exception as e:
@@ -124,7 +139,7 @@ class Sensing():
         self.S_Resolution = [640,480]
         self.gpu = gpu
         self.cross = []
-        self.roi = np.array([[525,25],[141,30],[81,459],[567,447]])
+        self.roi = np.array([[516,33],[116,45],[56,455],[601,452]])
         if not isinstance(self.roi, np.ndarray):
             logger.error("roi must be an np.array")
             self.roi = np.array([[536,64],[98,61],[60,479],[580,479]])
@@ -299,6 +314,7 @@ class Sensing():
             board_x = maxW - 1
             matrix = cv2.getPerspectiveTransform(lazer_board, transformed)
             image = cv2.warpPerspective(image,matrix,(maxW,maxH))
+            #cv2.imshow("origin",image)
             return image, board_x
         except Exception as e:
             logger.exception(f"Unexpected error in pt: {e}")
@@ -309,6 +325,8 @@ class Sensing():
             logger.error("detect_laser_blob Invalid Input ")
             return "error", "error"
         try:
+            #_, mask = cv2.threshold(image, 250, 255, cv2.THRESH_BINARY)
+            #cv2.imshow("mask1",mask)
             params = cv2.SimpleBlobDetector_Params()
             params.filterByArea = True
             params.minArea = 100
@@ -316,10 +334,10 @@ class Sensing():
             #params.minThreshold = 120
             #params.maxThreshold = 240 
             #params.thresholdStep = 10
-            params.minThreshold = 200
+            params.minThreshold = 240
             params.maxThreshold = 250 
             params.thresholdStep = 5
-            params.minRepeatability = 4
+            params.minRepeatability = 2
             params.filterByColor = False 
             params.filterByInertia = True
             params.minInertiaRatio = 0.1
@@ -332,7 +350,7 @@ class Sensing():
             if keypoints:
                 blob = max(keypoints, key=lambda k: k.size)
                 target_x, target_y = blob.pt
-                #cv2.circle(image, (int(target_x), int(target_y)), 2, (255, 0, 0), -1)
+                cv2.circle(image, (int(target_x), int(target_y)), 2, (255, 0, 0), -1)
                 return target_x, target_y
             else:
                 return target_x, target_y
@@ -357,8 +375,11 @@ class Sensing():
                 lower_hsv_hl = np.array([35, 80, 240]) 
                 upper_hsv_hl = np.array([95, 255, 255])
                 mask_ll = cv2.inRange(hsv, lower_hsv_ll, upper_hsv_ll)
+                #cv2.imshow("mask_ll",mask_ll)
                 mask_hl = cv2.inRange(hsv, lower_hsv_hl, upper_hsv_hl)
+                #cv2.imshow("mask_hl",mask_hl)
                 mask = cv2.bitwise_or(mask_ll, mask_hl)
+                #cv2.imshow("mask",mask)
             else:
                 return "error", "error"
             close = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
@@ -385,12 +406,12 @@ class Sensing():
                 circularity = (4 * np.pi * area) / (arclength ** 2)
                 
                 if circularity >= 0.75:
-                    #cv2.circle(image, (int(x), int(y)), 2, (0, 0, 255), -1)
+                    cv2.circle(image, (int(x), int(y)), 2, (0, 0, 255), -1)
                     target_x = x
                     target_y = y
                     break
                 elif 0.55 < circularity < 0.75 and (np.any(contour[:, 0, 1] == 0) or np.any(contour[:, 0 ,1] == image.shape[0]-1) or (np.any(contour[:,0,0] == 0) or np.any(contour[:,0,0] == image.shape[1]-1))): # circle in the corner
-                    #cv2.circle(image, (int(x), int(y)), 2, (0, 0, 255), -1)
+                    cv2.circle(image, (int(x), int(y)), 2, (0, 0, 255), -1)
                     target_x = x
                     target_y = y
                     break
@@ -442,7 +463,7 @@ class Sensing():
             'win32': cv2.CAP_DSHOW
         }
         
-        # 尝试所有可用后端
+        
         for backend in [backends.get(sys.platform), cv2.CAP_ANY]:
             self.cap = cv2.VideoCapture(0, backend)
             if self.cap.isOpened():

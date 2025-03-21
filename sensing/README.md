@@ -22,7 +22,7 @@
 ## Usage and Examples
 ### Run
     ```bash
-    python sensing.py --surveydistance 100.0 --wheelbase 1300 --heightthreashold 10.0 --actualboardwidth 136 --lasercolor green --gpu 0
+    python sensing.py --surveydistance 100 --wheelbase 1300 --heightthreashold 10 --actualboardwidth 136 --lasercolor green --gpu 0
     ```
    surveydistance: Total distance the profileograph travel unit in m
    
