@@ -96,7 +96,7 @@ uint8_t S_startSurvey = 0;
 float integral_global;
 float pidOutput_global;
 float steerAngle_global;
-float length = 6.0f;
+float length = 127.0f;
 float theta = 0.0f;
 //float theta_deg = 0.0f;
 float height_diff = 0.0f;
@@ -236,9 +236,18 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  C_transverseHeight(127);
-	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-	  HAL_Delay(490);
+	  C_transverseHeight(1270);
+	  if (height_diff <= -50) {
+		  htim9.Instance->CCR2 = MARKER_SERVO_LOW_CCR;
+	  } else {
+		  htim9.Instance->CCR2 = MARKER_SERVO_HIGH_CCR;
+	  }
+
+	  if (height_diff >= 50) {
+		  htim9.Instance->CCR1 = MARKER_SERVO_LOW_CCR;
+	  } else {
+		  htim9.Instance->CCR1 = MARKER_SERVO_HIGH_CCR;
+	  }
 /*
 	  switch (nextState){
 	  	  case STATE_IDLE:
