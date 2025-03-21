@@ -34,12 +34,12 @@
 // NOTE: SPI must be set in High Polarity and 2 Edges Phase mode.
 
 // If you are using libraries other than HAL, i.e. STDPeriph, change writeRegister and readRegister functions.
-#define SPIhandler hspi1
+#define SPIhandler hspi3
 extern SPI_HandleTypeDef SPIhandler;
 
 // GPIO definition
-#define ADXLCS_Pin GPIO_PIN_5
-#define ADXLCS_GPIO_Port GPIOB
+#define ADXLCS_Pin GPIO_PIN_2
+#define ADXLCS_GPIO_Port GPIOD
 
 
 // Registers' Address 

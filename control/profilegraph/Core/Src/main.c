@@ -57,6 +57,9 @@ State currentState;
 #define SERVO_CCR_AT_NEG20  690
 #define SERVO_CCR_AT_POS20  840
 
+#define MARKER_SERVO_HIGH_CCR 250
+#define MARKER_SERVO_LOW_CCR 750
+
 #define DRIVE_MOTOR_MAX_SPEED 1000
 #define DRIVE_MOTOR_MIN_SPEED 0
 
@@ -117,7 +120,7 @@ void Steering_Servo_Position(int8_t steeringAngle);
 void Steering_Servo_Control(int8_t offsetVal);
 void Drive_Motor_Control(uint16_t speed);
 void Drive_Motor_Start(float C_drivenDistance);
-void C_transverseHeight(void);
+void C_transverseHeight(uint16_t transverseLength);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -179,12 +182,13 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_SPI1_Init();
   MX_CAN1_Init();
   MX_TIM2_Init();
   MX_ADC1_Init();
   MX_TIM3_Init();
   MX_TIM4_Init();
+  MX_TIM9_Init();
+  MX_SPI3_Init();
   /* USER CODE BEGIN 2 */
   HAL_CAN_MspInit(&hcan1);
   CAN_Config();
@@ -218,8 +222,12 @@ int main(void)
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_2);
 
   htim2.Instance->CCR1 = SERVO_CCR_AT_CENTER;
+  htim9.Instance->CCR1 = MARKER_SERVO_HIGH_CCR;
+  htim9.Instance->CCR2 = MARKER_SERVO_HIGH_CCR;
 
   State nextState = STATE_IDLE;
   /* USER CODE END 2 */
@@ -228,6 +236,10 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+//	  C_transverseHeight(127);
+	  HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
+	  HAL_Delay(490);
+/*
 	  switch (nextState){
 	  	  case STATE_IDLE:
 	  		  currentState = STATE_IDLE;
@@ -251,7 +263,6 @@ int main(void)
 	  	  case STATE_RUNNING:
 	  		  currentState = STATE_RUNNING;
 	  		  HAL_TIM_Encoder_Start_IT(&htim4, TIM_CHANNEL_ALL);
-	  		  C_transverseHeight();
 	  		  Steering_Servo_Control(dis_off);
 			  Drive_Motor_Start(S_surveyDistanceSet);
 			  //Add can message broadcast
@@ -283,7 +294,7 @@ int main(void)
 	  		  nextState = STATE_ERROR;
 	  		  break;
 	  }
-
+*/
 //	  if (S_startSurvey && (dis_off != (-100))){
 //		  if (!start_delay) {
 //			  for (int speed = 0; speed < 1000; speed++){
@@ -378,25 +389,24 @@ void SystemClock_Config(void)
   }
 }
 
-/* USER CODE BEGIN */
-void C_transverseHeight(void) {
-    float accelData_g[3];
+/* USER CODE BEGIN 4 */
+void C_transverseHeight(uint16_t transverseLength) {
+//    float accelData_g[3];
     ADXL_getAccelFloat(accelData_g);
     float accel_x = accelData_g[0];
     float accel_z = accelData_g[2];
+    //static float theta = 0;
 
     theta = atanf(accel_x / accel_z);
     //theta_deg =  theta * (180.0f / 3.14)
-    height_diff = length * sinf(theta);
+    height_diff = transverseLength * sinf(theta);
     height_diff_send = height_diff * 10;
 
     TxData[2] = (height_diff_send) & 0xFF;
     TxData[3] = ((height_diff_send) >> 8) & 0xFF;
     HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
 }
-/* USER CODE END  */
 
-/* USER CODE BEGIN 4 */
 static void CAN_Config(void)
 {
 	CAN_FilterTypeDef sFilterConfig;
