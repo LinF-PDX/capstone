@@ -1,4 +1,4 @@
-from backend import Sensing, can_send, can_init,can_receive, add_parser_arguments, can_initvalue, can_down, restart_program
+from backend import Sensing, can_send, can_init,can_receive, add_parser_arguments, can_initvalue, can_down, restart_program, can_distance_stop
 import logging
 import argparse
 import multiprocessing as mp
@@ -113,6 +113,7 @@ def communication(conn,can0,can1,args):
                 buffer.clear()
                 # Send_To_GUI(csv)
             if float(Travel_Distance) >= args.surveydistance:
+                can_distance_stop(can0)
                 stop.set()
     if len(buffer) > 0:
         with open(path, mode="a", newline="") as file:
@@ -134,6 +135,7 @@ def button_callback(channel):
             if Comm_Process.is_alive():
                 Comm_Process.terminate()
                 Comm_Process.join()
+
         Sens_Process = None
         Comm_Process = None
         can_down()

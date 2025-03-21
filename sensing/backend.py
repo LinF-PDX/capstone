@@ -10,6 +10,17 @@ import subprocess
 
 logger = logging.getLogger("sensing")
 
+def can_distance_stop(can0):
+    try:
+        distance_stop = struct.pack('<?', 0)
+        msg_stop = can.Message(is_extended_id=False, arbitration_id=0x103, data=distance_stop)
+        can0.send(msg_stop)
+    except CanOperationError:
+        logger.error(f"CAN Distance Stop Send Failed")
+    except Exception as e:
+        logger.error(f"CAN Distance Stop Send Failed (Unexpected Error) {e}")
+        return None
+
 def restart_program():
     logger.warning("Restart")
     subprocess.Popen([sys.executable] + sys.argv)
@@ -303,6 +314,7 @@ class Sensing():
             board_x = maxW - 1
             matrix = cv2.getPerspectiveTransform(lazer_board, transformed)
             image = cv2.warpPerspective(image,matrix,(maxW,maxH))
+            #cv2.imshow("origin",image)
             return image, board_x
         except Exception as e:
             logger.exception(f"Unexpected error in pt: {e}")
@@ -313,6 +325,8 @@ class Sensing():
             logger.error("detect_laser_blob Invalid Input ")
             return "error", "error"
         try:
+            #_, mask = cv2.threshold(image, 250, 255, cv2.THRESH_BINARY)
+            #cv2.imshow("mask1",mask)
             params = cv2.SimpleBlobDetector_Params()
             params.filterByArea = True
             params.minArea = 100
@@ -320,10 +334,10 @@ class Sensing():
             #params.minThreshold = 120
             #params.maxThreshold = 240 
             #params.thresholdStep = 10
-            params.minThreshold = 200
+            params.minThreshold = 240
             params.maxThreshold = 250 
             params.thresholdStep = 5
-            params.minRepeatability = 4
+            params.minRepeatability = 2
             params.filterByColor = False 
             params.filterByInertia = True
             params.minInertiaRatio = 0.1
@@ -336,7 +350,7 @@ class Sensing():
             if keypoints:
                 blob = max(keypoints, key=lambda k: k.size)
                 target_x, target_y = blob.pt
-                #cv2.circle(image, (int(target_x), int(target_y)), 2, (255, 0, 0), -1)
+                cv2.circle(image, (int(target_x), int(target_y)), 2, (255, 0, 0), -1)
                 return target_x, target_y
             else:
                 return target_x, target_y
@@ -361,8 +375,11 @@ class Sensing():
                 lower_hsv_hl = np.array([35, 80, 240]) 
                 upper_hsv_hl = np.array([95, 255, 255])
                 mask_ll = cv2.inRange(hsv, lower_hsv_ll, upper_hsv_ll)
+                #cv2.imshow("mask_ll",mask_ll)
                 mask_hl = cv2.inRange(hsv, lower_hsv_hl, upper_hsv_hl)
+                #cv2.imshow("mask_hl",mask_hl)
                 mask = cv2.bitwise_or(mask_ll, mask_hl)
+                #cv2.imshow("mask",mask)
             else:
                 return "error", "error"
             close = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))
@@ -389,12 +406,12 @@ class Sensing():
                 circularity = (4 * np.pi * area) / (arclength ** 2)
                 
                 if circularity >= 0.75:
-                    #cv2.circle(image, (int(x), int(y)), 2, (0, 0, 255), -1)
+                    cv2.circle(image, (int(x), int(y)), 2, (0, 0, 255), -1)
                     target_x = x
                     target_y = y
                     break
                 elif 0.55 < circularity < 0.75 and (np.any(contour[:, 0, 1] == 0) or np.any(contour[:, 0 ,1] == image.shape[0]-1) or (np.any(contour[:,0,0] == 0) or np.any(contour[:,0,0] == image.shape[1]-1))): # circle in the corner
-                    #cv2.circle(image, (int(x), int(y)), 2, (0, 0, 255), -1)
+                    cv2.circle(image, (int(x), int(y)), 2, (0, 0, 255), -1)
                     target_x = x
                     target_y = y
                     break
