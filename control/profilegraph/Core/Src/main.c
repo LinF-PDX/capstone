@@ -230,24 +230,27 @@ int main(void)
   htim9.Instance->CCR2 = MARKER_SERVO_HIGH_CCR;
 
   State nextState = STATE_IDLE;
+
+  ADXL_setFilter();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  ADXL_getAccelRaw(accelData);
 	  C_transverseHeight(1270);
-	  if (height_diff <= -50) {
-		  htim9.Instance->CCR2 = MARKER_SERVO_LOW_CCR;
-	  } else {
-		  htim9.Instance->CCR2 = MARKER_SERVO_HIGH_CCR;
-	  }
-
-	  if (height_diff >= 50) {
-		  htim9.Instance->CCR1 = MARKER_SERVO_LOW_CCR;
-	  } else {
-		  htim9.Instance->CCR1 = MARKER_SERVO_HIGH_CCR;
-	  }
+//	  if (height_diff <= -50) {
+//		  htim9.Instance->CCR2 = MARKER_SERVO_LOW_CCR;
+//	  } else {
+//		  htim9.Instance->CCR2 = MARKER_SERVO_HIGH_CCR;
+//	  }
+//
+//	  if (height_diff >= 50) {
+//		  htim9.Instance->CCR1 = MARKER_SERVO_LOW_CCR;
+//	  } else {
+//		  htim9.Instance->CCR1 = MARKER_SERVO_HIGH_CCR;
+//	  }
 /*
 	  switch (nextState){
 	  	  case STATE_IDLE:

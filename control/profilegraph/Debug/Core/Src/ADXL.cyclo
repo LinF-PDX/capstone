@@ -7,3 +7,4 @@
 ../Core/Src/ADXL.c:216:6:ADXL_getAccelFloat	1
 ../Core/Src/ADXL.c:234:6:ADXL_setOffset	1
 ../Core/Src/ADXL.c:253:6:ADXL_Measure	3
+../Core/Src/ADXL.c:270:6:ADXL_setFilter	1

@@ -283,7 +283,7 @@ adxlStatus ADXL_Init(ADXL_InitTypeDef * adxl);
 
 void ADXL_getAccelRaw(void *Data);
 void ADXL_getAccelFloat(void *pData);
-
+void ADXL_setFilter(void);
 /** Starts Measure Mode
 * @param: s = ON or OFF				
 

@@ -266,6 +266,13 @@ void ADXL_Measure(Switch s)
 				break;				
 				}
 		}
+
+void ADXL_setFilter(void) {
+	uint8_t reg;
+	readRegister(FILTER, &reg, 1);
+	reg = 0b00001010;
+	writeRegister(FILTER, &reg, 1);
+}
 //
 ///** Starts Sleep Mode
 //* @param: s 		=  ON or OFF
