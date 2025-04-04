@@ -1,5 +1,7 @@
+matplotlib==3.10.1
+pandas==2.2.3
+python_can==4.5.0
 numpy==2.2.3
 opencv_python==4.10.0.82
-python_can==4.5.0
 RPi.GPIO==0.7.1
 rpi_lgpio==0.6

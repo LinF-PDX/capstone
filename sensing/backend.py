@@ -7,6 +7,12 @@ import logging
 from can.exceptions import CanError, CanInitializationError, CanOperationError, CanTimeoutError
 import sys
 import subprocess
+import matplotlib.pyplot as plt
+import os
+import pandas as pd
+
+
+
 
 logger = logging.getLogger("sensing")
 
@@ -554,7 +560,26 @@ class Sensing():
                 break
         self.cap.release()
         cv2.destroyAllWindows()
-    
+
+def plot_result(path,H_threshold):
+    if not os.path.isfile(path):
+        print("INCORRECT PATH!")
+        return
+    df = pd.read_csv(path)
+    x = df["Height_Difference"]
+    y = df["Travel_Distance"]
+    figure, axes = plt.subplots()
+    for i in range(0,len(x) - 1):
+        color = "red" if x[i] >= H_threshold else "black"
+        axes.plot(x[i:i+2], y[i:i+2], color=color, linewidth=2)
+    axes.set_xlabel("Travel Distance")
+    axes.set_ylabel("Height Difference")
+    axes.set_title("Profileograph Measurement")
+    path = os.path.splitext(path)[0] + ".jpg"
+    plt.savefig(path)
+    plt.close(figure)
+
+
 if __name__ == "__main__":
      import argparse
      parser = argparse.ArgumentParser()

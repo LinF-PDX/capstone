@@ -1,4 +1,4 @@
-from backend import Sensing, can_send, can_init,can_receive, add_parser_arguments, can_initvalue, can_down, restart_program, can_distance_stop
+from backend import Sensing, can_send, can_init,can_receive, add_parser_arguments, can_initvalue, can_down, restart_program, can_distance_stop, plot_result
 import logging
 import argparse
 import multiprocessing as mp
@@ -82,7 +82,6 @@ def sense_dot(conn,args):
             time.sleep(max(0,1/60-(time.time()-starttime)))
         except Exception as e:
             logger.exception(f"Error: {e}")
-            print("dvd sb le")
             break
     dis.cap.release()
     
@@ -100,8 +99,6 @@ def communication(conn,can0,can1,args):
             data = conn.recv()
             can_send(data,can0)
         Travel_Distance, Height_Difference = can_receive(can0)
-        if Travel_Distance != None:
-            print("Travel_Distance "+str(Travel_Distance))
         if Travel_Distance == None or Height_Difference == None:
             pass
         else:
@@ -113,6 +110,7 @@ def communication(conn,can0,can1,args):
                 buffer.clear()
                 # Send_To_GUI(csv)
             if float(Travel_Distance) >= args.surveydistance:
+                plot_result(path,args.heightthreashold)
                 can_distance_stop(can0)
                 stop.set()
     if len(buffer) > 0:
