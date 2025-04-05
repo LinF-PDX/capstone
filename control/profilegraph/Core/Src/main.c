@@ -67,6 +67,7 @@ State currentState;
 #define DRIVE_WHEEL_CIRCUMFERENCE_METER 0.2042
 
 #define DIS_OFF_DEFAULT (-100)
+#define S_WHEELBASE 1265
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -109,6 +110,7 @@ uint32_t extended_counter = 0;
 uint32_t prev_encoder_value = 0;
 
 float C_drivenDistance = 0;
+uint16_t C_drivenDistanceSend = 0;
 uint8_t start_delay = 0;
 /* USER CODE END PV */
 
@@ -238,20 +240,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  ADXL_getAccelRaw(accelData);
-	  C_transverseHeight(1270);
-//	  if (height_diff <= -50) {
-//		  htim9.Instance->CCR2 = MARKER_SERVO_LOW_CCR;
-//	  } else {
-//		  htim9.Instance->CCR2 = MARKER_SERVO_HIGH_CCR;
-//	  }
-//
-//	  if (height_diff >= 50) {
-//		  htim9.Instance->CCR1 = MARKER_SERVO_LOW_CCR;
-//	  } else {
-//		  htim9.Instance->CCR1 = MARKER_SERVO_HIGH_CCR;
-//	  }
-/*
+
+
 	  switch (nextState){
 	  	  case STATE_IDLE:
 	  		  currentState = STATE_IDLE;
@@ -260,15 +250,19 @@ int main(void)
 //	  		  Drive_Motor_Control(DRIVE_MOTOR_MAX_SPEED);
 	  		  Steering_Servo_Position(STEERING_ANGLE_CENTER);
 	  		  current_encoder_value = __HAL_TIM_SET_COUNTER(&htim4, 0);
+	  		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 1);
 	  		  if (S_startSurvey){
 	  			  nextState = STATE_STARTUP;
+		  		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 0);
 	  		  }
 	  		  break;
 
 	  	  case STATE_STARTUP:
 	  		  currentState = STATE_STARTUP;
+	  		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, 1);
 	  		  if (dis_off != (DIS_OFF_DEFAULT)){
 	  			  nextState = STATE_RUNNING;
+		  		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 0);
 	  		  }
 	  		  break;
 
@@ -277,7 +271,23 @@ int main(void)
 	  		  HAL_TIM_Encoder_Start_IT(&htim4, TIM_CHANNEL_ALL);
 	  		  Steering_Servo_Control(dis_off);
 			  Drive_Motor_Start(S_surveyDistanceSet);
+			  C_drivenDistanceSend = C_drivenDistance * 100;
+			  TxData[0] = C_drivenDistanceSend & 0xFF;
+			  TxData[1] = (C_drivenDistanceSend >> 8) & 0xFF;
 			  //Add can message broadcast
+			  ADXL_getAccelRaw(accelData);
+			  C_transverseHeight(S_WHEELBASE);
+//			  if (C_drivenDistance >= 1 && C_drivenDistance < 1.2) {
+//				  htim9.Instance->CCR1 = 400;
+//			  } else {
+//				  htim9.Instance->CCR1 = MARKER_SERVO_HIGH_CCR;
+//			  }
+//
+//			  if (C_drivenDistance >= 2 && C_drivenDistance < 2.2) {
+//				  htim9.Instance->CCR1 = 400;
+//			  } else {
+//				  htim9.Instance->CCR1 = MARKER_SERVO_HIGH_CCR;
+//			  }
 			  if (C_drivenDistance >= S_surveyDistanceSet){
 				  nextState = STATE_STOPPING;
 			  }
@@ -306,7 +316,7 @@ int main(void)
 	  		  nextState = STATE_ERROR;
 	  		  break;
 	  }
-*/
+
 //	  if (S_startSurvey && (dis_off != (-100))){
 //		  if (!start_delay) {
 //			  for (int speed = 0; speed < 1000; speed++){
@@ -462,6 +472,10 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 		S_heightThreashold = RxData[1];
 		S_wheelBase = RxData[2] | (RxData[3] << 8);
 		S_startSurvey = RxData[4] & 0x01;
+	}
+
+	if (RxHeader.StdId == 0x103) {
+		S_startSurvey = RxData[0] & 0x01;
 	}
 
 }
