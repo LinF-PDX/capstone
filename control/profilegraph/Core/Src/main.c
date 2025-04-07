@@ -45,8 +45,10 @@ State currentState;
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define DEMO 0
+
 #define DT (0.01f)
-#define KP (2.0f)
+#define KP (1.5f)
 #define KI (0.0f)
 #define DIS_OFF_MAX_LEFT (-67)
 #define DIS_OFF_MAX_RIGHT (67)
@@ -57,6 +59,9 @@ State currentState;
 #define SERVO_CCR_AT_NEG20  690
 #define SERVO_CCR_AT_POS20  840
 
+#define MARKER_SERVO_HIGH_CCR 250
+#define MARKER_SERVO_LOW_CCR 750
+
 #define DRIVE_MOTOR_MAX_SPEED 1000
 #define DRIVE_MOTOR_MIN_SPEED 0
 
@@ -64,6 +69,7 @@ State currentState;
 #define DRIVE_WHEEL_CIRCUMFERENCE_METER 0.2042
 
 #define DIS_OFF_DEFAULT (-100)
+#define S_WHEELBASE 1265
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -93,7 +99,7 @@ uint8_t S_startSurvey = 0;
 float integral_global;
 float pidOutput_global;
 float steerAngle_global;
-float length = 6.0f;
+float length = 127.0f;
 float theta = 0.0f;
 //float theta_deg = 0.0f;
 float height_diff = 0.0f;
@@ -106,6 +112,7 @@ uint32_t extended_counter = 0;
 uint32_t prev_encoder_value = 0;
 
 float C_drivenDistance = 0;
+uint16_t C_drivenDistanceSend = 0;
 uint8_t start_delay = 0;
 /* USER CODE END PV */
 
@@ -117,7 +124,7 @@ void Steering_Servo_Position(int8_t steeringAngle);
 void Steering_Servo_Control(int8_t offsetVal);
 void Drive_Motor_Control(uint16_t speed);
 void Drive_Motor_Start(float C_drivenDistance);
-void C_transverseHeight(void);
+void C_transverseHeight(uint16_t transverseLength);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -179,12 +186,13 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_SPI1_Init();
   MX_CAN1_Init();
   MX_TIM2_Init();
   MX_ADC1_Init();
   MX_TIM3_Init();
   MX_TIM4_Init();
+  MX_TIM9_Init();
+  MX_SPI3_Init();
   /* USER CODE BEGIN 2 */
   HAL_CAN_MspInit(&hcan1);
   CAN_Config();
@@ -218,44 +226,73 @@ int main(void)
 
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-  HAL_TIM_Encoder_Start_IT(&htim4, TIM_CHANNEL_ALL);
+  HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim9, TIM_CHANNEL_2);
 
   htim2.Instance->CCR1 = SERVO_CCR_AT_CENTER;
+  htim9.Instance->CCR1 = MARKER_SERVO_HIGH_CCR;
+  htim9.Instance->CCR2 = MARKER_SERVO_HIGH_CCR;
 
   State nextState = STATE_IDLE;
+
+  Steering_Servo_Position(STEERING_ANGLE_CENTER);
+  ADXL_setFilter();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+#if (DEMO)
+
+#else
+
 	  switch (nextState){
 	  	  case STATE_IDLE:
 	  		  currentState = STATE_IDLE;
 	  		  dis_off = DIS_OFF_DEFAULT;
 	  		  Drive_Motor_Control(DRIVE_MOTOR_MIN_SPEED);
 //	  		  Drive_Motor_Control(DRIVE_MOTOR_MAX_SPEED);
-	  		  Steering_Servo_Position(STEERING_ANGLE_CENTER);
 	  		  current_encoder_value = __HAL_TIM_SET_COUNTER(&htim4, 0);
+	  		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 1);
 	  		  if (S_startSurvey){
 	  			  nextState = STATE_STARTUP;
+		  		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 0);
 	  		  }
 	  		  break;
 
 	  	  case STATE_STARTUP:
 	  		  currentState = STATE_STARTUP;
+	  		  Steering_Servo_Position(STEERING_ANGLE_CENTER);
+	  		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, 1);
 	  		  if (dis_off != (DIS_OFF_DEFAULT)){
 	  			  nextState = STATE_RUNNING;
+		  		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, 0);
 	  		  }
 	  		  break;
 
 	  	  case STATE_RUNNING:
 	  		  currentState = STATE_RUNNING;
 	  		  HAL_TIM_Encoder_Start_IT(&htim4, TIM_CHANNEL_ALL);
-	  		  C_transverseHeight();
 	  		  Steering_Servo_Control(dis_off);
 			  Drive_Motor_Start(S_surveyDistanceSet);
+			  C_drivenDistanceSend = C_drivenDistance * 100;
+			  TxData[0] = C_drivenDistanceSend & 0xFF;
+			  TxData[1] = (C_drivenDistanceSend >> 8) & 0xFF;
 			  //Add can message broadcast
+			  ADXL_getAccelRaw(accelData);
+			  C_transverseHeight(S_WHEELBASE);
+//			  if (C_drivenDistance >= 1 && C_drivenDistance < 1.2) {
+//				  htim9.Instance->CCR1 = 400;
+//			  } else {
+//				  htim9.Instance->CCR1 = MARKER_SERVO_HIGH_CCR;
+//			  }
+//
+//			  if (C_drivenDistance >= 2 && C_drivenDistance < 2.2) {
+//				  htim9.Instance->CCR1 = 400;
+//			  } else {
+//				  htim9.Instance->CCR1 = MARKER_SERVO_HIGH_CCR;
+//			  }
 			  if (C_drivenDistance >= S_surveyDistanceSet){
 				  nextState = STATE_STOPPING;
 			  }
@@ -284,7 +321,7 @@ int main(void)
 	  		  nextState = STATE_ERROR;
 	  		  break;
 	  }
-
+#endif
 //	  if (S_startSurvey && (dis_off != (-100))){
 //		  if (!start_delay) {
 //			  for (int speed = 0; speed < 1000; speed++){
@@ -379,25 +416,24 @@ void SystemClock_Config(void)
   }
 }
 
-/* USER CODE BEGIN */
-void C_transverseHeight(void) {
-    float accelData_g[3];
+/* USER CODE BEGIN 4 */
+void C_transverseHeight(uint16_t transverseLength) {
+//    float accelData_g[3];
     ADXL_getAccelFloat(accelData_g);
     float accel_x = accelData_g[0];
     float accel_z = accelData_g[2];
+    //static float theta = 0;
 
     theta = atanf(accel_x / accel_z);
     //theta_deg =  theta * (180.0f / 3.14)
-    height_diff = length * sinf(theta);
+    height_diff = transverseLength * sinf(theta);
     height_diff_send = height_diff * 10;
 
     TxData[2] = (height_diff_send) & 0xFF;
     TxData[3] = ((height_diff_send) >> 8) & 0xFF;
     HAL_CAN_AddTxMessage(&hcan1, &TxHeader, TxData, &TxMailbox);
 }
-/* USER CODE END  */
 
-/* USER CODE BEGIN 4 */
 static void CAN_Config(void)
 {
 	CAN_FilterTypeDef sFilterConfig;
@@ -443,6 +479,10 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
 		S_startSurvey = RxData[4] & 0x01;
 	}
 
+	if (RxHeader.StdId == 0x103) {
+		S_startSurvey = RxData[0] & 0x01;
+	}
+
 }
 
 void Steering_Servo_Position(int8_t steeringAngle){
@@ -473,7 +513,7 @@ void Steering_Servo_Control(int8_t offsetVal){
 			offsetVal = DIS_OFF_MAX_RIGHT;
 		}
 
-		float error = offsetVal;   // setpoint is zero offset
+		float error = (float)offsetVal;   // setpoint is zero offset
 		integral += error * DT;           // integrate
 
 		// PID output = KP*error + KI*integral + KD*derivative
