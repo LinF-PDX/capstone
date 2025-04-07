@@ -45,8 +45,10 @@ State currentState;
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define DEMO 0
+
 #define DT (0.01f)
-#define KP (2.0f)
+#define KP (1.5f)
 #define KI (0.0f)
 #define DIS_OFF_MAX_LEFT (-67)
 #define DIS_OFF_MAX_RIGHT (67)
@@ -233,6 +235,7 @@ int main(void)
 
   State nextState = STATE_IDLE;
 
+  Steering_Servo_Position(STEERING_ANGLE_CENTER);
   ADXL_setFilter();
   /* USER CODE END 2 */
 
@@ -240,7 +243,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+#if (DEMO)
 
+#else
 
 	  switch (nextState){
 	  	  case STATE_IDLE:
@@ -248,7 +253,6 @@ int main(void)
 	  		  dis_off = DIS_OFF_DEFAULT;
 	  		  Drive_Motor_Control(DRIVE_MOTOR_MIN_SPEED);
 //	  		  Drive_Motor_Control(DRIVE_MOTOR_MAX_SPEED);
-	  		  Steering_Servo_Position(STEERING_ANGLE_CENTER);
 	  		  current_encoder_value = __HAL_TIM_SET_COUNTER(&htim4, 0);
 	  		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 1);
 	  		  if (S_startSurvey){
@@ -259,10 +263,11 @@ int main(void)
 
 	  	  case STATE_STARTUP:
 	  		  currentState = STATE_STARTUP;
+	  		  Steering_Servo_Position(STEERING_ANGLE_CENTER);
 	  		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, 1);
 	  		  if (dis_off != (DIS_OFF_DEFAULT)){
 	  			  nextState = STATE_RUNNING;
-		  		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 0);
+		  		  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, 0);
 	  		  }
 	  		  break;
 
@@ -316,7 +321,7 @@ int main(void)
 	  		  nextState = STATE_ERROR;
 	  		  break;
 	  }
-
+#endif
 //	  if (S_startSurvey && (dis_off != (-100))){
 //		  if (!start_delay) {
 //			  for (int speed = 0; speed < 1000; speed++){
@@ -508,7 +513,7 @@ void Steering_Servo_Control(int8_t offsetVal){
 			offsetVal = DIS_OFF_MAX_RIGHT;
 		}
 
-		float error = offsetVal;   // setpoint is zero offset
+		float error = (float)offsetVal;   // setpoint is zero offset
 		integral += error * DT;           // integrate
 
 		// PID output = KP*error + KI*integral + KD*derivative
