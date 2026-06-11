@@ -47,6 +47,13 @@
 #define SERVO_CCR_AT_NEG20      690u
 #define SERVO_CCR_AT_POS20      840u
 
+/* ---- Steering slew rate limiter -------------------------------------------
+ * Max rate the servo is allowed to move in software.  The ISR only updates
+ * g_steer_target; the main loop moves the actual CCR toward it at this rate.
+ * Increase to make steering snappier; decrease for smoother, slower motion.
+ * At 0.15 f: full ±20° sweep takes ~267 ms.  At 0.40 f it takes ~100 ms. */
+#define STEER_SLEW_RATE_DEG_PER_MS  0.15f
+
 /* USER CODE END PD */
 
 /* USER CODE BEGIN PV */
@@ -60,6 +67,9 @@ static uint32_t sTxMailbox;
 /* Watchdog state — written in CAN ISR, read in main loop */
 static volatile uint32_t g_last_cmd_ms  = 0;
 static volatile uint8_t  g_cmd_received = 0;
+
+/* Steering rate limiter — ISR writes target; main loop slews actual toward it */
+static volatile float g_steer_target = CMD_STEER_NEUTRAL_DEG;
 
 /* Encoder: monotonic 32-bit count built from 16-bit TIM4 counter.
  * Written in TIM4 IC ISR, read (snapshot) in main loop.
@@ -140,6 +150,8 @@ int main(void)
   sTxHeader.TransmitGlobalTime = DISABLE;
 
   uint32_t last_feedback_ms = 0;
+  uint32_t last_steer_ms   = 0;
+  float    steer_actual    = CMD_STEER_NEUTRAL_DEG;  /* tracks the CCR, main-loop only */
 
   /* USER CODE END 2 */
 
@@ -160,7 +172,23 @@ int main(void)
        * The watchdog re-arms automatically on the next valid 0x200 frame. */
       if (g_cmd_received && (now - g_last_cmd_ms) > WATCHDOG_TIMEOUT_MS) {
           Motor_Set(CMD_SPEED_MIN);
-          /* steering hardware holds its CCR value — no write needed */
+          /* steering target is left unchanged — slew loop continues holding it */
+      }
+
+      /* ---- Steering slew rate limiter ------------------------------------
+       * Move steer_actual toward g_steer_target by at most
+       * STEER_SLEW_RATE_DEG_PER_MS per millisecond elapsed.
+       * The ISR only updates g_steer_target; all CCR writes happen here. */
+      {
+          uint32_t dt_ms  = now - last_steer_ms;
+          last_steer_ms   = now;
+          float target    = g_steer_target;   /* single volatile read */
+          float delta     = target - steer_actual;
+          float max_step  = STEER_SLEW_RATE_DEG_PER_MS * (float)dt_ms;
+          if      (delta >  max_step) delta =  max_step;
+          else if (delta < -max_step) delta = -max_step;
+          steer_actual   += delta;
+          Steering_Set(steer_actual);
       }
 
       /* ---- Encoder feedback at 50 Hz -------------------------------------*/
@@ -206,8 +234,11 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan) {
      * Scaling: 1 count = 1 PWM duty unit (0–1000, maps to Drive_Motor_Control) */
     uint16_t speed = (uint16_t)sRxData[2] | ((uint16_t)sRxData[3] << 8);
 
-    /* Clamp and apply — setters enforce their own limits as well */
-    Steering_Set(steer_deg);
+    /* Store steering target — main loop slews actual CCR toward it.
+     * Motor is applied immediately (no ramp needed). */
+    if (steer_deg < CMD_STEER_MIN_DEG) steer_deg = CMD_STEER_MIN_DEG;
+    if (steer_deg > CMD_STEER_MAX_DEG) steer_deg = CMD_STEER_MAX_DEG;
+    g_steer_target = steer_deg;
     Motor_Set(speed);
 
     /* Refresh watchdog */
